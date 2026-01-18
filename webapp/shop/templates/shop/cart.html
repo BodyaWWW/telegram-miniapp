@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Кошик</title>
+  <link href="https://unpkg.com/tailwindcss@^2.2/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .modal-bg { background: rgba(0,0,0,0.5); }
+    .modal-content { animation: popup .25s cubic-bezier(.3,1.2,.4,1.0); }
+    @keyframes popup {
+      0% { transform: scale(.93) translateY(40px); opacity:0;}
+      100% {transform: scale(1) translateY(0); opacity:1;}
+    }
+    .delivery-active {
+      border-color: #22c55e !important;
+      box-shadow: 0 0 0 2px #bbf7d0;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<!-- Универсальный хедер -->
+<header class="bg-white shadow fixed top-0 left-0 right-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+    <div class="flex items-center space-x-3">
+      <a href="/" class="flex items-center space-x-3">
+        <img src="/media/coins/icon.png" alt="icon" width="50" height="50">
+      <span class="text-lg font-semibold">Numismatic</span>
+      </a>
+    </div>
+    <!-- Кнопка лайков -->
+    <button id="fav-header-btn" class="relative flex items-center favorite-btn focus:outline-none" onclick="openFavoritesModal()" title="Вподобані">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21C12 21 4 13.713 4 8.795a4.2 4.2 0 018.193-2.025A4.2 4.2 0 0120 8.795C20 13.713 12 21 12 21z"/>
+      </svg>
+      <span id="fav-counter" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-1.5 rounded-full" style="display:none;">0</span>
+    </button>
+  </div>
+</header>
+
+<!-- Модалка вподобаних монет -->
+<div id="favorites-modal-bg" class="modal-bg fixed inset-0 flex items-center justify-center z-50 hidden">
+  <div class="modal-content bg-white rounded-2xl shadow-2xl w-[95vw] max-w-lg mx-auto p-5 relative">
+    <button onclick="closeFavoritesModal()" class="absolute top-2 right-2 bg-gray-200 hover:bg-gray-400 rounded-full p-1">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+    <h2 class="text-xl font-bold text-blue-900 mb-2">Вподобані монети</h2>
+    <div id="favorites-list" class="grid grid-cols-1 gap-3"></div>
+    <div id="favorites-empty" class="text-center text-gray-500 py-4 hidden">Немає вподобаних монет.</div>
+  </div>
+</div>
+
+<main class="pt-20 pb-40 px-4 max-w-2xl mx-auto">
+  <h1 class="text-2xl font-bold mb-4 text-center">Ваш кошик</h1>
+  <div id="cart-list"></div>
+  <div id="order-steps-section" class="mt-6 border-t pt-4" style="display:none;">
+    <div id="steps">
+      <!-- Крок 1: Дані покупця -->
+      <form id="step1" class="space-y-4" autocomplete="off" onsubmit="return false;">
+        <div>
+          <label class="block text-sm font-medium mb-1">Прізвище</label>
+          <input type="text" name="lastname" class="w-full border rounded px-2 py-2 text-base" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Ім'я</label>
+          <input type="text" name="firstname" class="w-full border rounded px-2 py-2 text-base" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Телефон</label>
+          <input type="text" name="phone" class="w-full border rounded px-2 py-2 text-base" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Коментар</label>
+          <textarea name="comment" class="w-full border rounded px-2 py-2 text-base"></textarea>
+        </div>
+        <button type="button" class="w-full bg-blue-600 text-white px-4 py-3 rounded text-base font-semibold" onclick="goToStep(2)">Далі</button>
+      </form>
+
+      <!-- Крок 2: Вибір служби доставки -->
+      <form id="step2" class="space-y-4 hidden" autocomplete="off" onsubmit="return false;">
+        <div>
+          <label class="block text-sm font-medium mb-1">Оберіть службу доставки</label>
+          <div class="flex gap-4 mt-2">
+            <!-- Блок Нова Пошта -->
+            <div id="np-block" class="flex-1 cursor-pointer border-2 border-gray-300 rounded-2xl p-4 flex flex-col items-center hover:border-blue-400 transition"
+              onclick="selectDelivery('nova')">
+              <img src="data:image/png;base64,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" alt="Нова Пошта" class="h-14 mb-2">
+              <div class="font-bold text-lg mb-1">Нова Пошта</div>
+              <div class="text-sm text-gray-500">Відділення / Поштомат</div>
+            </div>
+            <!-- Блок Укрпошта -->
+            <div id="ukr-block" class="flex-1 cursor-pointer border-2 border-gray-300 rounded-2xl p-4 flex flex-col items-center hover:border-yellow-400 transition"
+              onclick="selectDelivery('ukr')">
+              <img src="data:image/png;base64,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" alt="Укрпошта" class="h-14 mb-2">
+              <div class="font-bold text-lg mb-1">Укрпошта</div>
+              <div class="text-sm text-gray-500">Відділення</div>
+            </div>
+          </div>
+        </div>
+        <!-- Динамические поля доставки -->
+        <div id="delivery-fields" class="space-y-4 mt-4"></div>
+        <button type="button" class="w-full bg-blue-600 text-white px-4 py-3 rounded text-base font-semibold" onclick="goToStep(3)">Далі</button>
+        <button type="button" class="w-full bg-gray-300 text-black px-4 py-3 rounded text-base font-semibold mt-2" onclick="goToStep(1)">Назад</button>
+      </form>
+
+      <!-- Крок 3: Оплата -->
+      <form id="step3" class="space-y-4 hidden" autocomplete="off" onsubmit="return false;">
+        <div>
+          <label class="block text-sm font-medium mb-1">Спосіб оплати</label>
+          <select name="payment" id="payment-select" class="w-full border rounded px-2 py-2 text-base" onchange="showBankDetails()" required>
+            <option value="cod">Оплата при отриманні</option>
+            <option value="online">Онлайн-оплата</option>
+          </select>
+        </div>
+        <div id="bank-details" class="hidden">
+          <label class="block text-sm font-medium mb-1">Банк</label>
+          <select name="bank" id="bank-select" class="w-full border rounded px-2 py-2 text-base" onchange="updateBankCard()">
+            <option value="monobank">MonoBank</option>
+            <option value="privatbank">PrivatBank</option>
+          </select>
+          <div class="mt-2 text-sm">
+            <div><b>Картка для оплати:</b> <span id="bank-card">4444 1111 2222 3333</span></div>
+          </div>
+        </div>
+        <button type="button" class="w-full bg-blue-600 text-white px-4 py-3 rounded text-base font-semibold" onclick="submitOrder()">Замовити</button>
+        <button type="button" class="w-full bg-gray-300 text-black px-4 py-3 rounded text-base font-semibold mt-2" onclick="goToStep(2)">Назад</button>
+      </form>
+    </div>
+  </div>
+</main>
+
+<!-- Нижнее меню (корзина осталась) -->
+<nav class="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around items-center py-4 shadow-md z-50 text-lg">
+  <a href="/" class="flex flex-col items-center text-blue-600 font-semibold">
+    <span style="font-size: 1.8em;">🏠</span>
+    <span class="text-base mt-1">Головна</span>
+  </a>
+  <a href="/catalog/" class="flex flex-col items-center text-blue-600 font-semibold">
+    <span style="font-size: 1.8em;">📚</span>
+    <span class="text-base mt-1">Каталог</span>
+  </a>
+  <a href="/cart/" class="flex flex-col items-center text-blue-600 font-semibold relative">
+    <span style="font-size: 1.8em;">🛒</span>
+    <span class="text-base mt-1">Кошик</span>
+    <span id="cart-counter-bottom"
+          class="absolute -top-2 -right-2 bg-blue-600 text-white px-2 py-0.5 rounded-full text-xs font-bold"
+          style="display:none;">
+    </span>
+  </a>
+</nav>
+
+<script>
+// ПІДСТАВ ДАНІ СВОЇХ ТОВАРІВ JSON (django: context['coins_json'])
+const COIN_DATA = {{ coins_json|safe }};
+const allCoins = COIN_DATA.map(c => ({
+  id: c.id, name: c.name, image: c.image, year: c.year || '', material: c.material || '', price: c.price,
+  url: '/coin/' + c.id + '/',
+}));
+
+function renderCart() {
+  let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+  let html = '';
+  let sum = 0;
+  if (Object.keys(cart).length === 0) {
+    html = '<p class="text-center text-gray-500">Кошик порожній.</p>';
+    document.getElementById('order-steps-section').style.display = 'none';
+  } else {
+    html += '<table class="w-full text-base"><tbody>';
+    Object.keys(cart).forEach(pid => {
+      let product = COIN_DATA.find(x => x.id == pid);
+      if (!product) return;
+      let qty = cart[pid].quantity;
+      sum += product.price * qty;
+      html += `<tr>
+        <td class="py-2"><img src="${product.image}" class="h-14 w-14 object-cover rounded"></td>
+        <td>${product.name}</td>
+        <td>
+          <button onclick="changeQty('${pid}',-1)" class="px-2">-</button>
+          <span>${qty}</span>
+          <button onclick="changeQty('${pid}',1)" class="px-2">+</button>
+        </td>
+        <td>${product.price * qty} грн</td>
+        <td><button onclick="removeFromCart('${pid}')" class="text-red-500">✕</button></td>
+      </tr>`;
+    });
+    html += `</tbody></table>
+      <div class="text-right font-bold text-lg mt-2">Сума: ${sum} грн</div>`;
+    document.getElementById('order-steps-section').style.display = 'block';
+  }
+  document.getElementById('cart-list').innerHTML = html;
+}
+
+function changeQty(pid, d) {
+  let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+  if (!cart[pid]) return;
+  cart[pid].quantity += d;
+  if (cart[pid].quantity < 1) cart[pid].quantity = 1;
+  localStorage.setItem('cart', JSON.stringify(cart));
+  renderCart();
+}
+
+function removeFromCart(pid) {
+  let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+  delete cart[pid];
+  localStorage.setItem('cart', JSON.stringify(cart));
+  renderCart();
+}
+
+function goToStep(n) {
+  for (let i = 1; i <= 3; i++) {
+    document.getElementById('step' + i).classList.add('hidden');
+  }
+  document.getElementById('step' + n).classList.remove('hidden');
+}
+
+// --- Выбор службы доставки (НП/Укрпошта) ---
+let selectedDelivery = null;
+function selectDelivery(type) {
+  selectedDelivery = type;
+  document.getElementById('np-block').classList.toggle('delivery-active', type === 'nova');
+  document.getElementById('ukr-block').classList.toggle('delivery-active', type === 'ukr');
+  renderDeliveryFields(type);
+}
+function renderDeliveryFields(type) {
+  const fields = document.getElementById('delivery-fields');
+  if (type === 'nova') {
+    fields.innerHTML = `
+      <div>
+        <label class="block text-sm font-medium mb-1">Місто (мін. 3 букви)</label>
+        <div class="relative">
+          <input type="text" name="city" id="np-city" class="w-full border rounded px-2 py-2 text-base" required autocomplete="off" placeholder="Почніть вводити місто">
+          <ul id="city-autocomplete" class="absolute left-0 right-0 bg-white border z-20 rounded shadow hidden"></ul>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Тип доставки</label>
+        <div class="flex items-center gap-6 mt-2">
+          <label class="flex items-center cursor-pointer">
+            <input type="radio" name="warehouse_type" value="Branch" checked class="mr-2" onchange="updateWarehouses()">
+            <span>Відділення</span>
+          </label>
+          <label class="flex items-center cursor-pointer">
+            <input type="radio" name="warehouse_type" value="Postomat" class="mr-2" onchange="updateWarehouses()">
+            <span>Поштомат</span>
+          </label>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Відділення/Поштомат Нової Пошти</label>
+        <select name="np_office" id="np-office" class="w-full border rounded px-2 py-2 text-base" required>
+          <option value="">Оберіть відділення</option>
+        </select>
+      </div>
+    `;
+    setTimeout(() => { reinitNPFields(); }, 20);
+  } else if (type === 'ukr') {
+    fields.innerHTML = `
+      <div>
+        <label class="block text-sm font-medium mb-1">Місто</label>
+        <input type="text" name="ukr_city" id="ukr-city" class="w-full border rounded px-2 py-2 text-base" required autocomplete="off" placeholder="Введіть місто">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Відділення Укрпошти</label>
+        <select name="ukr_office" id="ukr-office" class="w-full border rounded px-2 py-2 text-base" required>
+          <option value="">Оберіть відділення</option>
+        </select>
+      </div>
+      <div class="text-xs text-gray-500">* Підключи API Укрпошти або задай відділення вручну</div>
+    `;
+  } else {
+    fields.innerHTML = '';
+  }
+}
+// Повторная инициализация автокомплита/скриптов после рендера блока НП
+function reinitNPFields() {
+  const cityInput = document.getElementById('np-city');
+  const cityList = document.getElementById('city-autocomplete');
+  if (!cityInput) return;
+  cityInput.addEventListener('input', async function() {
+    let input = this.value.trim();
+    if (input.length < 3) {
+      cityList.classList.add('hidden');
+      return;
+    }
+    let res = await fetch("https://api.novaposhta.ua/v2.0/json/", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        "apiKey": NP_API_KEY,
+        "modelName": "Address",
+        "calledMethod": "searchSettlements",
+        "methodProperties": {"CityName": input, "Limit": 8}
+      })
+    });
+    let data = await res.json();
+    let addresses = data.data && data.data[0] ? data.data[0].Addresses : [];
+    cityList.innerHTML = '';
+    if (addresses.length) {
+      addresses.forEach(addr => {
+        let li = document.createElement('li');
+        li.textContent = addr.Present;
+        li.className = 'px-3 py-1 hover:bg-blue-100 cursor-pointer';
+        li.onclick = () => {
+          cityInput.value = addr.Present;
+          selectedCityRef = addr.Ref;
+          cityList.classList.add('hidden');
+          loadNpOffices(selectedCityRef);
+        };
+        cityList.appendChild(li);
+      });
+      cityList.classList.remove('hidden');
+    } else {
+      cityList.classList.add('hidden');
+    }
+  });
+  document.addEventListener('click', function(e){
+    if (!cityList.contains(e.target) && e.target !== cityInput) {
+      cityList.classList.add('hidden');
+    }
+  });
+}
+
+// --- Інтеграція з Нова Пошта --- //
+const NP_API_KEY = "1d01eb4736fe82f405ec91de2b78406b"; // <-- твій ключ!
+let selectedCityRef = null;
+let currentWarehouses = [];
+async function loadNpOffices(cityRef) {
+  let officeSelect = document.getElementById('np-office');
+  officeSelect.innerHTML = '<option>Завантаження...</option>';
+  let res = await fetch("https://api.novaposhta.ua/v2.0/json/", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      "apiKey": NP_API_KEY,
+      "modelName": "Address",
+      "calledMethod": "getWarehouses",
+      "methodProperties": {"CityRef": cityRef, "Limit": 100}
+    })
+  });
+  let data = await res.json();
+  currentWarehouses = data.data || [];
+  updateWarehouses();
+}
+function updateWarehouses() {
+  let officeSelect = document.getElementById('np-office');
+  if (!officeSelect) return;
+  let selectedType = document.querySelector('#delivery-fields input[name="warehouse_type"]:checked').value;
+  let filtered = currentWarehouses.filter(w => w.TypeOfWarehouse === selectedType);
+  if (!filtered.length) {
+    officeSelect.innerHTML = '<option>Нічого не знайдено</option>';
+    return;
+  }
+  officeSelect.innerHTML = '<option value="">Оберіть відділення</option>';
+  filtered.forEach(ofc => {
+    officeSelect.innerHTML += `<option value="${ofc.Description}">${ofc.Description}</option>`;
+  });
+}
+
+// --- Оплата ---
+function showBankDetails() {
+  const pay = document.getElementById('payment-select').value;
+  const details = document.getElementById('bank-details');
+  if (pay === 'online') {
+    details.classList.remove('hidden');
+    updateBankCard();
+  } else {
+    details.classList.add('hidden');
+  }
+}
+function updateBankCard() {
+  const bankSelect = document.getElementById('bank-select');
+  const bankCard = document.getElementById('bank-card');
+  if (bankSelect.value === 'monobank') {
+    bankCard.textContent = '5375 4112 1234 5678';
+  } else {
+    bankCard.textContent = '5168 7573 9123 4567';
+  }
+}
+
+// --- Відправка замовлення ---
+function submitOrder() {
+  let data = {
+    lastname: document.querySelector('#step1 [name="lastname"]').value,
+    firstname: document.querySelector('#step1 [name="firstname"]').value,
+    phone: document.querySelector('#step1 [name="phone"]').value,
+    comment: document.querySelector('#step1 [name="comment"]').value,
+    delivery_service: selectedDelivery,
+    city: selectedDelivery === 'nova'
+      ? (document.querySelector('#delivery-fields [name="city"]')?.value || '')
+      : (document.querySelector('#delivery-fields [name="ukr_city"]')?.value || ''),
+    np_office: selectedDelivery === 'nova'
+      ? (document.querySelector('#delivery-fields [name="np_office"]')?.value || '')
+      : '',
+    ukr_office: selectedDelivery === 'ukr'
+      ? (document.querySelector('#delivery-fields [name="ukr_office"]')?.value || '')
+      : '',
+    delivery_type: selectedDelivery === 'nova'
+      ? (document.querySelector('#delivery-fields input[name="warehouse_type"]:checked')?.value || '')
+      : '',
+    payment: document.querySelector('#step3 [name="payment"]').value,
+    bank: document.querySelector('#step3 [name="bank"]') ? document.querySelector('#step3 [name="bank"]').value : null,
+    cart: JSON.parse(localStorage.getItem('cart') || '{}'),
+  };
+  fetch('/api/create_order/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+    body: JSON.stringify(data)
+  }).then(r=>r.json()).then(res=>{
+    if (res.success) {
+      alert('Замовлення оформлено!');
+      localStorage.removeItem('cart');
+      window.location = '/catalog/';
+    } else {
+      alert('Помилка: ' + (res.error || 'Спробуйте ще раз.'));
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  renderCart();
+  goToStep(1);
+  // По умолчанию выбрана Нова Пошта для старта (можно убрать если не надо)
+  // selectDelivery('nova');
+});
+
+// Кошик: localStorage, лічильник, зміна кнопки
+function updateCartCounter() {
+  let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+  let sum = 0;
+  Object.values(cart).forEach(obj => sum += obj.quantity);
+  let c1 = document.getElementById('cart-counter');
+  let c2 = document.getElementById('cart-counter-bottom');
+  if (sum > 0) {
+    if (c1) { c1.textContent = sum; c1.style.display = 'inline-block'; }
+    if (c2) { c2.textContent = sum; c2.style.display = 'inline-block'; }
+  } else {
+    if (c1) c1.style.display = 'none';
+    if (c2) c2.style.display = 'none';
+  }
+}
+function markButtonInCart(productId) {
+  let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+  let btn = document.querySelector('.add-to-cart-btn[data-product-id="'+productId+'"]');
+  if (!btn) return;
+  if (cart[productId]) {
+    btn.textContent = 'В кошику';
+    btn.classList.add('bg-green-500','hover:bg-green-600');
+    btn.classList.remove('bg-blue-500','hover:bg-blue-600');
+    btn.disabled = true;
+  } else {
+    btn.textContent = 'Додати в кошик';
+    btn.classList.remove('bg-green-500','hover:bg-green-600');
+    btn.classList.add('bg-blue-500','hover:bg-blue-600');
+    btn.disabled = false;
+  }
+}
+function initCartButtons() {
+  document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+    const productId = btn.getAttribute('data-product-id');
+    markButtonInCart(productId);
+    btn.onclick = function() {
+      let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+      if (cart[productId]) return;
+      cart[productId] = {quantity: 1};
+      localStorage.setItem('cart', JSON.stringify(cart));
+      markButtonInCart(productId);
+      updateCartCounter();
+    };
+  });
+}
+document.addEventListener('DOMContentLoaded', function() {
+  initCartButtons();
+  updateCartCounter();
+});
+
+/* ---- Лайки (единый код для всех страниц) ---- */
+function getFavorites() {
+  try { return JSON.parse(localStorage.getItem('favorites') || '[]'); } catch(e){ return []; }
+}
+function setFavorites(ids) {
+  localStorage.setItem('favorites', JSON.stringify(ids));
+}
+function updateFavoriteButtons() {
+  let favs = getFavorites();
+  document.querySelectorAll('.favorite-btn').forEach(btn => {
+    let parent = btn.closest('[data-coin-id]');
+    let coinId = parent ? parseInt(parent.getAttribute('data-coin-id')) : null;
+    if (!coinId) return;
+    if (favs.includes(coinId)) {
+      btn.querySelector('svg').style.fill = '#e74c3c';
+      btn.querySelector('svg').style.stroke = '#e74c3c';
+    } else {
+      btn.querySelector('svg').style.fill = 'none';
+      btn.querySelector('svg').style.stroke = '#e74c3c';
+    }
+  });
+  let counter = document.getElementById('fav-counter');
+  if (counter) {
+    if (favs.length > 0) { counter.textContent = favs.length; counter.style.display = 'block'; }
+    else { counter.style.display = 'none'; }
+  }
+}
+function toggleFavorite(coinId, btn) {
+  let favs = getFavorites();
+  coinId = parseInt(coinId);
+  if (favs.includes(coinId)) {
+    favs = favs.filter(id => id !== coinId);
+  } else {
+    favs.push(coinId);
+  }
+  setFavorites(favs);
+  updateFavoriteButtons();
+}
+function openFavoritesModal() {
+  let favs = getFavorites();
+  let favList = document.getElementById('favorites-list');
+  let favEmpty = document.getElementById('favorites-empty');
+  favList.innerHTML = '';
+  if (favs.length === 0) {
+    favEmpty.style.display = '';
+  } else {
+    favEmpty.style.display = 'none';
+    favs.forEach(fid => {
+      let coin = allCoins.find(c => c.id === fid);
+      if (!coin) return;
+      favList.innerHTML += `
+        <div class="flex gap-3 items-center bg-gray-50 rounded-lg shadow px-3 py-2">
+          <img src="${coin.image}" class="w-16 h-16 rounded shadow object-cover">
+          <div>
+            <div class="font-bold text-blue-800">${coin.name}</div>
+            <div class="text-xs text-gray-500">${coin.year}, ${coin.material}</div>
+            <div class="text-blue-700 font-bold">${coin.price} грн</div>
+            <a href="${coin.url}" class="text-sm text-blue-600 hover:underline mt-1 block">Перейти</a>
+          </div>
+          <button class="ml-auto favorite-btn" onclick="toggleFavorite(${coin.id}, this)">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="#e74c3c" viewBox="0 0 24 24" stroke="#e74c3c" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21C12 21 4 13.713 4 8.795a4.2 4.2 0 018.193-2.025A4.2 4.2 0 0120 8.795C20 13.713 12 21 12 21z"/>
+            </svg>
+          </button>
+        </div>
+      `;
+    });
+  }
+  document.getElementById('favorites-modal-bg').classList.remove('hidden');
+}
+function closeFavoritesModal() {
+  document.getElementById('favorites-modal-bg').classList.add('hidden');
+}
+document.addEventListener('DOMContentLoaded', function(){
+  updateFavoriteButtons();
+  window.addEventListener('focus', updateFavoriteButtons);
+});
+</script>
+</body>
+</html>

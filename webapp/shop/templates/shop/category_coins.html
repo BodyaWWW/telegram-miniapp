@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Категорія | Магазин Монет</title>
+  <link href="https://unpkg.com/tailwindcss@^2.2/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .modal-bg { background: rgba(0,0,0,0.5);}
+    .modal-content { animation: popup .25s cubic-bezier(.3,1.2,.4,1.0);}
+    @keyframes popup {
+      0% { transform: scale(.93) translateY(40px); opacity:0;}
+      100% {transform: scale(1) translateY(0); opacity:1;}
+    }
+    .favorite-btn-abs {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: #fff;
+      border-radius: 9999px;
+      box-shadow: 0 1px 6px 0 rgba(44,62,80,0.08);
+      padding: 3px;
+      z-index: 10;
+      transition: box-shadow .15s;
+    }
+    .favorite-btn-abs:active {
+      box-shadow: 0 2px 12px 0 rgba(44,62,80,0.14);
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<!-- Универсальный хедер -->
+<header class="bg-white shadow fixed top-0 left-0 right-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+    <div class="flex items-center space-x-3">
+      <a href="/" class="flex items-center space-x-3">
+        <img src="/media/coins/icon.png" alt="icon" width="50" height="50">
+      <span class="text-lg font-semibold">Numismatic</span>
+      </a>
+    </div>
+    <button id="fav-header-btn" class="relative flex items-center favorite-btn focus:outline-none" onclick="openFavoritesModal()" title="Вподобані">
+      <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21C12 21 4 13.713 4 8.795a4.2 4.2 0 018.193-2.025A4.2 4.2 0 0120 8.795C20 13.713 12 21 12 21z"/>
+      </svg>
+      <span id="fav-counter" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-1.5 rounded-full" style="display:none;">0</span>
+    </button>
+  </div>
+</header>
+
+<!-- Модалка вподобаних монет -->
+<div id="favorites-modal-bg" class="modal-bg fixed inset-0 flex items-center justify-center z-50 hidden">
+  <div class="modal-content bg-white rounded-2xl shadow-2xl w-[95vw] max-w-lg mx-auto p-5 relative">
+    <button onclick="closeFavoritesModal()" class="absolute top-2 right-2 bg-gray-200 hover:bg-gray-400 rounded-full p-1">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+    <h2 class="text-xl font-bold text-blue-900 mb-2">Вподобані монети</h2>
+    <div id="favorites-list" class="grid grid-cols-1 gap-3"></div>
+    <div id="favorites-empty" class="text-center text-gray-500 py-4 hidden">Немає вподобаних монет.</div>
+  </div>
+</div>
+
+<main class="pt-20 pb-36 px-2 max-w-7xl mx-auto">
+  <h1 class="text-2xl font-bold text-blue-900 mb-4 text-center">Монети цієї категорії</h1>
+  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
+    {% for coin in products %}
+      <div class="bg-white rounded-xl shadow p-2 sm:p-3 flex flex-col relative" data-coin-id="{{ coin.id }}">
+        <button class="favorite-btn-abs favorite-btn" type="button" title="Вподобати" onclick="toggleFavorite({{ coin.id }}, this)">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="#e74c3c" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 21C12 21 4 13.713 4 8.795a4.2 4.2 0 018.193-2.025A4.2 4.2 0 0120 8.795C20 13.713 12 21 12 21z"/>
+          </svg>
+        </button>
+        <a href="{% url 'shop:coin_detail' coin.pk %}">
+          <img src="{{ coin.image.url }}" alt="{{ coin.name }}" class="h-32 sm:h-40 w-full object-cover rounded mb-2 hover:scale-105 transition">
+          <h3 class="text-base font-semibold text-blue-900 hover:underline">{{ coin.name }}</h3>
+        </a>
+        <p class="text-xs sm:text-sm text-gray-500">{{ coin.year }}, {{ coin.material }}</p>
+        {% if coin.circulation %}<p class="text-xs sm:text-sm text-gray-500">Тираж: {{ coin.circulation }}</p>{% endif %}
+        <div class="mt-auto pt-2">
+          <p class="font-bold text-blue-700 text-lg">{{ coin.price }} грн</p>
+          <button type="button"
+                  class="add-to-cart-btn w-full mt-2 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded text-base font-semibold"
+                  data-product-id="{{ coin.id }}">
+            Додати в кошик
+          </button>
+        </div>
+      </div>
+    {% empty %}
+      <p class="col-span-full text-center text-gray-500">Немає монет у цій категорії.</p>
+    {% endfor %}
+  </div>
+</main>
+
+<nav class="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around items-center py-4 shadow-md z-50 text-lg">
+  <a href="/" class="flex flex-col items-center text-blue-600 font-semibold">
+    <span style="font-size: 1.7em;">🏠</span>
+    <span class="text-base mt-1">Головна</span>
+  </a>
+  <a href="/catalog/" class="flex flex-col items-center text-blue-600 font-semibold">
+    <span style="font-size: 1.7em;">📚</span>
+    <span class="text-base mt-1">Каталог</span>
+  </a>
+  <a href="/cart/" class="flex flex-col items-center text-blue-600 font-semibold relative">
+    <span style="font-size: 1.7em;">🛒</span>
+    <span class="text-base mt-1">Кошик</span>
+    <span id="cart-counter-bottom"
+          class="absolute -top-1 -right-2 bg-blue-600 text-white px-2 py-0.5 rounded-full text-xs font-bold"
+          style="display:none;">
+    </span>
+  </a>
+</nav>
+
+<script>
+// all_coins_json должен содержать ВСЕ монеты сайта для работы модалки!
+const allCoins = {{ all_coins_json|safe }};
+
+function getFavorites() {
+  try { return JSON.parse(localStorage.getItem('favorites') || '[]'); } catch(e){ return []; }
+}
+function setFavorites(ids) {
+  localStorage.setItem('favorites', JSON.stringify(ids));
+}
+function updateFavoriteButtons() {
+  let favs = getFavorites();
+  // Все кнопки (и на карточках, и в модалке)
+  document.querySelectorAll('.favorite-btn').forEach(btn => {
+    let parent = btn.closest('[data-coin-id]');
+    let coinId = parent ? parseInt(parent.getAttribute('data-coin-id')) : null;
+    if (!coinId && btn.hasAttribute('data-coin-id')) coinId = parseInt(btn.getAttribute('data-coin-id'));
+    // Кнопки в модалке — пробуем парсить через onclick
+    if (!coinId && btn.onclick) {
+      let m = btn.onclick.toString().match(/toggleFavorite\((\d+)/);
+      if (m) coinId = parseInt(m[1]);
+    }
+    if (coinId && btn.querySelector('svg')) {
+      if (favs.includes(coinId)) {
+        btn.querySelector('svg').style.fill = '#e74c3c';
+        btn.querySelector('svg').style.stroke = '#e74c3c';
+      } else {
+        btn.querySelector('svg').style.fill = 'none';
+        btn.querySelector('svg').style.stroke = '#e74c3c';
+      }
+    }
+  });
+  // Логика лайков
+const allCoins = [
+  {% for coin in coins %}
+  {
+    id: {{ coin.id }},
+    name: "{{ coin.name|escapejs }}",
+    price: "{{ coin.price }}",
+    image: "{{ coin.image.url }}",
+    material: "{{ coin.material|escapejs }}",
+    year: "{{ coin.year }}",
+    circulation: "{{ coin.circulation|default:'' }}",
+    url: "{% url 'shop:coin_detail' coin.pk %}"
+  },
+  {% endfor %}
+];
+
+function getFavorites() {
+  try { return JSON.parse(localStorage.getItem('favorites') || '[]'); } catch(e){ return []; }
+}
+function setFavorites(ids) {
+  localStorage.setItem('favorites', JSON.stringify(ids));
+}
+function updateFavoriteButtons() {
+  let favs = getFavorites();
+  document.querySelectorAll('.favorite-btn').forEach(btn => {
+    let parent = btn.closest('[data-coin-id]');
+    let coinId = parent ? parseInt(parent.getAttribute('data-coin-id')) : null;
+    if (!coinId) return;
+    if (favs.includes(coinId)) {
+      btn.querySelector('svg').style.fill = '#e74c3c';
+      btn.querySelector('svg').style.stroke = '#e74c3c';
+    } else {
+      btn.querySelector('svg').style.fill = 'none';
+      btn.querySelector('svg').style.stroke = '#e74c3c';
+    }
+  });
+  // Счетчик
+  let counter = document.getElementById('fav-counter');
+  if (counter) {
+    if (favs.length > 0) { counter.textContent = favs.length; counter.style.display = 'block'; }
+    else { counter.style.display = 'none'; }
+  }
+}
+function toggleFavorite(coinId, btn) {
+  let favs = getFavorites();
+  coinId = parseInt(coinId);
+  if (favs.includes(coinId)) {
+    favs = favs.filter(id => id !== coinId);
+  } else {
+    favs.push(coinId);
+  }
+  setFavorites(favs);
+  updateFavoriteButtons();
+}
+// Открыть/закрыть модалку с лайками
+function openFavoritesModal() {
+  let favs = getFavorites();
+  let favList = document.getElementById('favorites-list');
+  let favEmpty = document.getElementById('favorites-empty');
+  favList.innerHTML = '';
+  if (favs.length === 0) {
+    favEmpty.style.display = '';
+  } else {
+    favEmpty.style.display = 'none';
+    favs.forEach(fid => {
+      let coin = allCoins.find(c => c.id === fid);
+      if (!coin) return;
+      favList.innerHTML += `
+        <div class="flex gap-3 items-center bg-gray-50 rounded-lg shadow px-3 py-2">
+          <img src="${coin.image}" class="w-16 h-16 rounded shadow object-cover">
+          <div>
+            <div class="font-bold text-blue-800">${coin.name}</div>
+            <div class="text-xs text-gray-500">${coin.year}, ${coin.material}</div>
+            <div class="text-blue-700 font-bold">${coin.price} грн</div>
+            <a href="${coin.url}" class="text-sm text-blue-600 hover:underline mt-1 block">Перейти</a>
+          </div>
+          <button class="ml-auto favorite-btn" onclick="toggleFavorite(${coin.id}, this)">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="#e74c3c" viewBox="0 0 24 24" stroke="#e74c3c" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21C12 21 4 13.713 4 8.795a4.2 4.2 0 018.193-2.025A4.2 4.2 0 0120 8.795C20 13.713 12 21 12 21z"/>
+            </svg>
+          </button>
+        </div>
+      `;
+    });
+  }
+  document.getElementById('favorites-modal-bg').classList.remove('hidden');
+}
+function closeFavoritesModal() {
+  document.getElementById('favorites-modal-bg').classList.add('hidden');
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  initCartButtons();
+  updateCartCounter();
+  updateFavoriteButtons();
+  window.addEventListener('focus', updateFavoriteButtons);
+});
+</script>
+</body>
+</html>

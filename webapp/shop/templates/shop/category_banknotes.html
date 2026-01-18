@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Категорія | Магазин Банкнот</title>
+  <link href="https://unpkg.com/tailwindcss@^2.2/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .modal-bg { background: rgba(0,0,0,0.5);}
+    .modal-content { animation: popup .25s cubic-bezier(.3,1.2,.4,1.0);}
+    @keyframes popup {
+      0% { transform: scale(.93) translateY(40px); opacity:0;}
+      100% {transform: scale(1) translateY(0); opacity:1;}
+    }
+    .favorite-btn-abs {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: #fff;
+      border-radius: 9999px;
+      box-shadow: 0 1px 6px 0 rgba(44,62,80,0.08);
+      padding: 3px;
+      z-index: 10;
+      transition: box-shadow .15s;
+    }
+    .favorite-btn-abs:active {
+      box-shadow: 0 2px 12px 0 rgba(44,62,80,0.14);
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<header class="bg-white shadow fixed top-0 left-0 right-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+    <div class="flex items-center space-x-3">
+      <a href="/" class="flex items-center space-x-3">
+        <img src="/media/coins/icon.png" alt="icon" width="36" height="36">
+        <span class="text-lg font-semibold">Numismatic</span>
+      </a>
+    </div>
+    <button id="fav-header-btn" class="relative flex items-center favorite-btn focus:outline-none" onclick="openFavoritesModal()" title="Вподобані">
+      <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21C12 21 4 13.713 4 8.795a4.2 4.2 0 018.193-2.025A4.2 4.2 0 0120 8.795C20 13.713 12 21 12 21z"/>
+      </svg>
+      <span id="fav-counter" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-1.5 rounded-full" style="display:none;">0</span>
+    </button>
+  </div>
+</header>
+
+<!-- Модалка вподобаних банкнот -->
+<div id="favorites-modal-bg" class="modal-bg fixed inset-0 flex items-center justify-center z-50 hidden">
+  <div class="modal-content bg-white rounded-2xl shadow-2xl w-[95vw] max-w-lg mx-auto p-5 relative">
+    <button onclick="closeFavoritesModal()" class="absolute top-2 right-2 bg-gray-200 hover:bg-gray-400 rounded-full p-1">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+    <h2 class="text-xl font-bold text-blue-900 mb-2">Вподобані банкноти</h2>
+    <div id="favorites-list" class="grid grid-cols-1 gap-3"></div>
+    <div id="favorites-empty" class="text-center text-gray-500 py-4 hidden">Немає вподобаних банкнот.</div>
+  </div>
+</div>
+
+<main class="pt-20 pb-36 px-2 max-w-7xl mx-auto">
+  <h1 class="text-2xl font-bold text-blue-900 mb-4 text-center">Банкноти цієї категорії</h1>
+  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
+    {% for note in banknotes %}
+      <div class="bg-white rounded-xl shadow p-2 sm:p-3 flex flex-col relative" data-note-id="{{ note.id }}">
+        <button class="favorite-btn-abs favorite-btn" type="button" title="Вподобати" onclick="toggleFavorite({{ note.id }}, this)">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="#e74c3c" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 21C12 21 4 13.713 4 8.795a4.2 4.2 0 018.193-2.025A4.2 4.2 0 0120 8.795C20 13.713 12 21 12 21z"/>
+          </svg>
+        </button>
+        <a href="{% url 'shop:note_detail' note.pk %}">
+          <img src="{{ note.image.url }}" alt="{{ note.name }}" class="h-32 sm:h-40 w-full object-cover rounded mb-2 hover:scale-105 transition">
+          <h3 class="text-base font-semibold text-blue-900 hover:underline">{{ note.name }}</h3>
+        </a>
+        <p class="text-xs sm:text-sm text-gray-500">{{ note.year }}, {{ note.country }}</p>
+        {% if note.series %}<p class="text-xs sm:text-sm text-gray-500">Серія: {{ note.series }}</p>{% endif %}
+        <div class="mt-auto pt-2">
+          <p class="font-bold text-blue-700 text-lg">{{ note.price }} грн</p>
+          <button type="button"
+                  class="add-to-cart-btn w-full mt-2 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded text-base font-semibold"
+                  data-product-id="{{ note.id }}">
+            Додати в кошик
+          </button>
+        </div>
+      </div>
+    {% empty %}
+      <p class="col-span-full text-center text-gray-500">Немає банкнот у цій категорії.</p>
+    {% endfor %}
+  </div>
+</main>
+
+<nav class="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around items-center py-4 shadow-md z-50 text-lg">
+  <a href="/" class="flex flex-col items-center text-blue-600 font-semibold">
+    <span style="font-size: 1.7em;">🏠</span>
+    <span class="text-base mt-1">Головна</span>
+  </a>
+  <a href="/catalog/" class="flex flex-col items-center text-blue-600 font-semibold">
+    <span style="font-size: 1.7em;">📚</span>
+    <span class="text-base mt-1">Каталог</span>
+  </a>
+  <a href="/cart/" class="flex flex-col items-center text-blue-600 font-semibold relative">
+    <span style="font-size: 1.7em;">🛒</span>
+    <span class="text-base mt-1">Кошик</span>
+    <span id="cart-counter-bottom"
+          class="absolute -top-1 -right-2 bg-blue-600 text-white px-2 py-0.5 rounded-full text-xs font-bold"
+          style="display:none;">
+    </span>
+  </a>
+</nav>
+
+<script>
+// all_banknotes_json должен содержать ВСЕ банкноты сайта!
+const allBanknotes = {{ all_banknotes_json|safe }};
+
+// ---------------- Лайки -----------------
+function getFavorites() {
+  try { return JSON.parse(localStorage.getItem('favorites_notes') || '[]'); } catch(e){ return []; }
+}
+function setFavorites(ids) {
+  localStorage.setItem('favorites_notes', JSON.stringify(ids));
+}
+function updateFavoriteButtons() {
+  let favs = getFavorites();
+  document.querySelectorAll('.favorite-btn').forEach(btn => {
+    let parent = btn.closest('[data-note-id]');
+    let noteId = parent ? parseInt(parent.getAttribute('data-note-id')) : null;
+    if (!noteId && btn.hasAttribute('data-note-id')) noteId = parseInt(btn.getAttribute('data-note-id'));
+    if (noteId && btn.querySelector('svg')) {
+      if (favs.includes(noteId)) {
+        btn.querySelector('svg').style.fill = '#e74c3c';
+        btn.querySelector('svg').style.stroke = '#e74c3c';
+      } else {
+        btn.querySelector('svg').style.fill = 'none';
+        btn.querySelector('svg').style.stroke = '#e74c3c';
+      }
+    }
+  });
+  // Счетчик
+  let counter = document.getElementById('fav-counter');
+  if (counter) {
+    if (favs.length > 0) { counter.textContent = favs.length; counter.style.display = 'block'; }
+    else { counter.style.display = 'none'; }
+  }
+}
+function toggleFavorite(noteId, btn) {
+  let favs = getFavorites();
+  noteId = parseInt(noteId);
+  if (favs.includes(noteId)) {
+    favs = favs.filter(id => id !== noteId);
+  } else {
+    favs.push(noteId);
+  }
+  setFavorites(favs);
+  updateFavoriteButtons();
+}
+function openFavoritesModal() {
+  let favs = getFavorites();
+  let favList = document.getElementById('favorites-list');
+  let favEmpty = document.getElementById('favorites-empty');
+  favList.innerHTML = '';
+  if (favs.length === 0) {
+    favEmpty.style.display = '';
+  } else {
+    favEmpty.style.display = 'none';
+    favs.forEach(fid => {
+      let note = allBanknotes.find(c => c.id === fid);
+      if (!note) return;
+      favList.innerHTML += `
+        <div class="flex gap-3 items-center bg-gray-50 rounded-lg shadow px-3 py-2">
+          <img src="${note.image}" class="w-16 h-16 rounded shadow object-cover">
+          <div>
+            <div class="font-bold text-blue-800">${note.name}</div>
+            <div class="text-xs text-gray-500">${note.year || ''}${note.country ? ', ' + note.country : ''}</div>
+            <div class="text-blue-700 font-bold">${note.price} грн</div>
+            <a href="${note.url}" class="text-sm text-blue-600 hover:underline mt-1 block">Перейти</a>
+          </div>
+          <button class="ml-auto favorite-btn" onclick="toggleFavorite(${note.id}, this)">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="#e74c3c" viewBox="0 0 24 24" stroke="#e74c3c" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21C12 21 4 13.713 4 8.795a4.2 4.2 0 018.193-2.025A4.2 4.2 0 0120 8.795C20 13.713 12 21 12 21z"/>
+            </svg>
+          </button>
+        </div>
+      `;
+    });
+  }
+  document.getElementById('favorites-modal-bg').classList.remove('hidden');
+}
+function closeFavoritesModal() {
+  document.getElementById('favorites-modal-bg').classList.add('hidden');
+}
+
+// -------- Кошик (корзина) --------
+function updateCartCounter() {
+  let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+  let sum = 0;
+  Object.values(cart).forEach(obj => sum += obj.quantity);
+  let c2 = document.getElementById('cart-counter-bottom');
+  if (c2) { if (sum > 0) { c2.textContent = sum; c2.style.display = 'inline-block'; } else { c2.style.display = 'none'; } }
+}
+function markButtonInCart(productId) {
+  let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+  let btn = document.querySelector('.add-to-cart-btn[data-product-id="'+productId+'"]');
+  if (!btn) return;
+  if (cart[productId]) {
+    btn.textContent = 'В кошику';
+    btn.classList.add('bg-green-500','hover:bg-green-600');
+    btn.classList.remove('bg-blue-500','hover:bg-blue-600');
+    btn.disabled = true;
+  } else {
+    btn.textContent = 'Додати в кошик';
+    btn.classList.remove('bg-green-500','hover:bg-green-600');
+    btn.classList.add('bg-blue-500','hover:bg-blue-600');
+    btn.disabled = false;
+  }
+}
+function initCartButtons() {
+  document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+    const productId = btn.getAttribute('data-product-id');
+    markButtonInCart(productId);
+    btn.onclick = function() {
+      let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+      if (cart[productId]) return;
+      cart[productId] = {quantity: 1};
+      localStorage.setItem('cart', JSON.stringify(cart));
+      markButtonInCart(productId);
+      updateCartCounter();
+    };
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  initCartButtons();
+  updateCartCounter();
+  updateFavoriteButtons();
+  window.addEventListener('focus', updateFavoriteButtons);
+});
+</script>
+</body>
+</html>

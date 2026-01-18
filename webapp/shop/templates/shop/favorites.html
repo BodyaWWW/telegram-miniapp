@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Магазин Монет</title>
+  <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="icon" type="image/png" href="https://user-images.githubusercontent.com/86606251/135616573-fa6b14ce-1ffc-46e1-b322-44c4d2a307df.jpeg">
+  <style>
+    ::selection {
+      background-color: grey;
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+      background-color: white;
+    }
+    ::-webkit-scrollbar-thumb {
+      background-color: black;
+    }
+    .heart-button {
+      cursor: pointer;
+      font-size: 24px;
+      color: white;
+      border: 2px solid black;
+      border-radius: 50%;
+      padding: 5px;
+      transition: 0.3s;
+    }
+    .heart-button.liked {
+      color: red;
+      border-color: red;
+    }
+    .heart-button:hover {
+      background-color: #f1f1f1;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+  <!-- Навигация -->
+  <header class="text-gray-700 body-font sticky top-0 z-50 bg-white shadow">
+    <div class="container mx-auto flex flex-wrap p-5 flex-col md:flex-row items-center">
+      <a class="flex title-font font-medium items-center text-gray-900 mb-4 md:mb-0">
+        <img src="https://cdn3.iconfinder.com/data/icons/small/512/buy_cart_ecommerce_shopping_online_store-512.png" class="h-10">
+        <span class="ml-3 text-xl font-bold">Магазин Монет</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Меню с категориями -->
+  <nav class="bg-white shadow-md sticky top-16 z-40">
+    <div class="container mx-auto flex justify-center p-4">
+      <div class="flex space-x-4">
+        <button class="text-blue-500" onclick="showCategory('moneti')">Монети</button>
+        <button class="text-blue-500" onclick="showCategory('banknotes')">Банкноти</button>
+        <button class="text-blue-500" onclick="showCategory('accessories')">Аксесуари</button>
+        <button class="text-blue-500" onclick="showCategory('literature')">Тематична література</button>
+        <button class="text-blue-500" onclick="showFavorites()">Понравившиеся</button> <!-- Кнопка для отображения понравившихся товаров -->
+      </div>
+    </div>
+  </nav>
+
+  <!-- Количество понравившихся товаров возле корзины -->
+  <div class="fixed bottom-4 right-4 z-50">
+    <a href="/favorites" class="relative">
+      <img src="https://cdn3.iconfinder.com/data/icons/small/512/cart-512.png" class="h-12">
+      <div id="favorites-count" class="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">0</div>
+    </a>
+  </div>
+
+  <!-- Список товаров -->
+  <section class="text-gray-700 body-font py-10">
+    <div class="container mx-auto px-4">
+      <div class="flex flex-wrap -m-4 mt-8">
+        {% for coin in coins %}
+        <div class="lg:w-1/4 md:w-1/2 p-4 w-full coin-item {{ coin.category }}" data-id="{{ coin.id }}" data-year="{{ coin.year }}">
+          <div class="block relative h-48 rounded overflow-hidden">
+            <img alt="{{ coin.name }}" class="object-cover object-center w-full h-full block" src="{{ coin.image.url }}">
+          </div>
+          <div class="mt-4">
+            <h3 class="text-gray-500 text-xs tracking-widest title-font mb-1">{{ coin.name }}</h3>
+            <h2 class="text-gray-900 title-font text-lg font-medium">{{ coin.price }}₴</h2>
+            <p class="text-sm text-gray-500">Тираж: {{ coin.circulation }} шт.</p>
+            <p class="text-sm text-gray-500">Матеріал: {{ coin.material }}</p>
+            <button class="mt-2 px-6 py-2 bg-blue-500 text-white rounded-full">Додати в кошик</button>
+            <span class="heart-button" onclick="toggleFavorite({{ coin.id }})">&#9825;</span> <!-- Кнопка сердца -->
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Функция для добавления/удаления товара из понравившихся
+    function toggleFavorite(coinId) {
+      let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+      if (favorites.includes(coinId)) {
+        // Если товар уже в списке понравившихся, удаляем его
+        favorites = favorites.filter(id => id !== coinId);
+      } else {
+        // Если товара нет в списке, добавляем его
+        favorites.push(coinId);
+      }
+      localStorage.setItem('favorites', JSON.stringify(favorites));
+      updateHeartButton(coinId);
+      updateFavoritesCount();
+    }
+
+    // Функция для обновления состояния кнопки сердца
+    function updateHeartButton(coinId) {
+      let heartButton = document.querySelector(`[data-id="${coinId}"] .heart-button`);
+      let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+      if (favorites.includes(coinId)) {
+        heartButton.classList.add('liked');
+      } else {
+        heartButton.classList.remove('liked');
+      }
+    }
+
+    // Функция для обновления количества понравившихся товаров
+    function updateFavoritesCount() {
+      let favoritesCount = JSON.parse(localStorage.getItem('favorites')) || [];
+      document.getElementById('favorites-count').innerText = favoritesCount.length;
+    }
+
+    // Обновление кнопок сердечек на странице
+    document.addEventListener('DOMContentLoaded', () => {
+      let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+      favorites.forEach(coinId => {
+        updateHeartButton(coinId);
+      });
+      updateFavoritesCount();
+    });
+
+    // Функция для отображения страницы с понравившимися товарами
+    function showFavorites() {
+      window.location.href = '/favorites';  // Переход на страницу с понравившимися товарами
+    }
+  </script>
+
+</body>
+</html>

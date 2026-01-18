@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ coin.name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://unpkg.com/tailwindcss@^2.2/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .carousel-img { display: none; }
+    .carousel-img.active { display: block; }
+    /* Модалка */
+    #img-modal {
+      display: none;
+      position: fixed; z-index: 1000;
+      left: 0; top: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.93);
+      justify-content: center; align-items: center;
+    }
+    #img-modal img { max-width: 96vw; max-height: 80vh; border-radius: 1rem; }
+    #img-modal.active { display: flex; }
+    #img-modal-close {
+      position: absolute; top: 18px; right: 18px;
+      background: rgba(0,0,0,0.6); color: #fff; border: none;
+      font-size: 2rem; font-weight: bold; border-radius: 9999px; width: 40px; height: 40px; line-height: 34px; text-align: center;
+      z-index: 1100; cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<header class="bg-white shadow fixed top-0 left-0 right-0 z-50">
+  <div class="max-w-md mx-auto px-2 py-2 flex justify-between items-center">
+    <a href="/catalog/" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">← Каталог</a>
+    <span class="text-base font-semibold truncate w-48 text-center block">{{ coin.name }}</span>
+  </div>
+</header>
+
+<main class="pt-16 pb-20 px-2 max-w-md mx-auto">
+  <div class="bg-white rounded-xl shadow p-3 grid grid-cols-1 gap-4">
+    <div>
+      <!-- Карусель фото -->
+      <div class="relative w-full h-48 flex items-center justify-center">
+        <img src="{{ coin.image.url }}" class="carousel-img active w-full h-48 object-contain rounded bg-gray-50 cursor-zoom-in" alt="{{ coin.name }}">
+        {% for img in coin.images.all %}
+          <img src="{{ img.image.url }}" class="carousel-img w-full h-48 object-contain rounded bg-gray-50 cursor-zoom-in" alt="">
+        {% endfor %}
+        {% if coin.images.all %}
+        <button id="prevBtn" class="absolute left-1 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-80 px-2 py-1 rounded shadow text-lg">&lt;</button>
+        <button id="nextBtn" class="absolute right-1 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-80 px-2 py-1 rounded shadow text-lg">&gt;</button>
+        {% endif %}
+      </div>
+      <!-- Миниатюры -->
+      {% if coin.images.all %}
+        <div class="flex gap-2 mt-3 justify-center">
+          <img src="{{ coin.image.url }}" class="thumb-img h-12 w-12 rounded border object-cover cursor-pointer ring-2 ring-blue-400" alt="">
+          {% for img in coin.images.all %}
+            <img src="{{ img.image.url }}" class="thumb-img h-12 w-12 rounded border object-cover cursor-pointer" alt="">
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    <div>
+      <h1 class="text-xl font-bold mb-1 truncate">{{ coin.name }}</h1>
+      <p class="text-lg text-blue-700 font-semibold mb-3">{{ coin.price }} грн</p>
+      <ul class="mb-2 text-sm space-y-1">
+        <li>Рік: <b>{{ coin.year }}</b></li>
+        <li>Матеріал: <b>{{ coin.material }}</b></li>
+        {% if coin.weight %}<li>Вага: <b>{{ coin.weight }} г</b></li>{% endif %}
+        {% if coin.diameter %}<li>Діаметр: <b>{{ coin.diameter }} мм</b></li>{% endif %}
+        {% if coin.edge %}<li>Гурт: <b>{{ coin.edge }}</b></li>{% endif %}
+        {% if coin.circulation %}<li>Тираж: <b>{{ coin.circulation }}</b></li>{% endif %}
+        {% if coin.minting %}<li>Монетний двір: <b>{{ coin.minting }}</b></li>{% endif %}
+        <li>Категорія: <b>{{ coin.get_category_display }}</b></li>
+      </ul>
+      <a href="/cart/" class="bg-blue-600 text-white px-4 py-2 rounded mt-3 block text-center text-base font-semibold">Додати в кошик</a>
+    </div>
+  </div>
+</main>
+
+<!-- Модалка для увеличения фото -->
+<div id="img-modal">
+  <button id="img-modal-close">&times;</button>
+  <img src="" alt="Фото монети">
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Карусель
+  const images = document.querySelectorAll('.carousel-img');
+  const thumbs = document.querySelectorAll('.thumb-img');
+  let index = 0;
+
+  function showImg(i) {
+    images.forEach((img, idx) => {
+      img.classList.toggle('active', idx === i);
+      if (thumbs[idx]) thumbs[idx].classList.toggle('ring-2', idx === i);
+      if (thumbs[idx]) thumbs[idx].classList.toggle('ring-blue-400', idx === i);
+    });
+  }
+
+  if (images.length > 1) {
+    document.getElementById('prevBtn').onclick = () => {
+      index = (index - 1 + images.length) % images.length;
+      showImg(index);
+    };
+    document.getElementById('nextBtn').onclick = () => {
+      index = (index + 1) % images.length;
+      showImg(index);
+    };
+    thumbs.forEach((thumb, idx) => {
+      thumb.onclick = () => {
+        index = idx;
+        showImg(index);
+      };
+    });
+  }
+
+  // --- Увеличение фото ---
+  const modal = document.getElementById('img-modal');
+  const modalImg = modal.querySelector('img');
+  const closeBtn = document.getElementById('img-modal-close');
+
+  function openModal(src) {
+    modalImg.src = src;
+    modal.classList.add('active');
+  }
+  function closeModal() {
+    modal.classList.remove('active');
+    modalImg.src = '';
+  }
+
+  // Клик по любой крупной фото
+  images.forEach(img => {
+    img.addEventListener('click', () => {
+      openModal(img.src);
+    });
+  });
+  // Клик по миниатюре — сразу увеличить, а не только переключить (если хочется)
+  thumbs.forEach(thumb => {
+    thumb.addEventListener('dblclick', () => {
+      openModal(thumb.src);
+    });
+  });
+
+  // Закрытие по кнопке и по затемненному фону
+  closeBtn.onclick = closeModal;
+  modal.onclick = function(e) {
+    if (e.target === modal) closeModal();
+  };
+});
+</script>
+<!-- Нижнє меню (основна навігація) -->
+<nav class="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around items-center py-4 shadow-md z-50 text-lg">
+  <a href="/" class="flex flex-col items-center text-blue-600 font-semibold">
+    <span style="font-size: 1.7em;">🏠</span>
+    <span class="text-base mt-1">Головна</span>
+  </a>
+  <a href="/catalog/" class="flex flex-col items-center text-blue-600 font-semibold">
+    <span style="font-size: 1.7em;">📚</span>
+    <span class="text-base mt-1">Каталог</span>
+  </a>
+  <a href="/cart/" class="flex flex-col items-center text-blue-600 font-semibold relative">
+    <span style="font-size: 1.7em;">🛒</span>
+    <span class="text-base mt-1">Кошик</span>
+    <span id="cart-counter-bottom"
+          class="absolute -top-1 -right-2 bg-blue-600 text-white px-2 py-0.5 rounded-full text-xs font-bold"
+          style="display:none;">
+    </span>
+  </a>
+</nav>
+
+<script>
+function updateCartCounter() {
+  let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+  let sum = 0;
+  Object.values(cart).forEach(obj => sum += obj.quantity);
+  let c2 = document.getElementById('cart-counter-bottom');
+  if (c2) {
+    if (sum > 0) {
+      c2.textContent = sum;
+      c2.style.display = 'inline-block';
+    } else {
+      c2.style.display = 'none';
+    }
+  }
+}
+document.addEventListener('DOMContentLoaded', updateCartCounter);
+</script>
+</body>
+</html>
