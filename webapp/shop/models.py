@@ -56,6 +56,7 @@ class Order(models.Model):
     payment = models.CharField(max_length=50, blank=True, null=True)
     bank = models.CharField(max_length=50, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    sent = models.BooleanField(default=False)
 
 
 class OrderItem(models.Model):

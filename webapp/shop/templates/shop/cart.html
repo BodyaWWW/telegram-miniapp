@@ -222,6 +222,7 @@ function selectDelivery(type) {
   document.getElementById('ukr-block').classList.toggle('delivery-active', type === 'ukr');
   renderDeliveryFields(type);
 }
+
 function renderDeliveryFields(type) {
   const fields = document.getElementById('delivery-fields');
   if (type === 'nova') {
@@ -237,11 +238,11 @@ function renderDeliveryFields(type) {
         <label class="block text-sm font-medium mb-1">Тип доставки</label>
         <div class="flex items-center gap-6 mt-2">
           <label class="flex items-center cursor-pointer">
-            <input type="radio" name="warehouse_type" value="Branch" checked class="mr-2" onchange="updateWarehouses()">
+            <input type="radio" name="warehouse_type" value="Branch" checked class="mr-2">
             <span>Відділення</span>
           </label>
           <label class="flex items-center cursor-pointer">
-            <input type="radio" name="warehouse_type" value="Postomat" class="mr-2" onchange="updateWarehouses()">
+            <input type="radio" name="warehouse_type" value="Postomat" class="mr-2">
             <span>Поштомат</span>
           </label>
         </div>
@@ -272,37 +273,45 @@ function renderDeliveryFields(type) {
     fields.innerHTML = '';
   }
 }
-// Повторная инициализация автокомплита/скриптов после рендера блока НП
+
+// --- Исправленная интеграция с Новой Почтой ---
+const NP_API_KEY = "1d01eb4736fe82f405ec91de2b78406b"; // твой ключ
+let selectedCityRef = null;
+let currentWarehouses = [];
+
+// Инициализация автокомплита города
 function reinitNPFields() {
   const cityInput = document.getElementById('np-city');
   const cityList = document.getElementById('city-autocomplete');
   if (!cityInput) return;
+
   cityInput.addEventListener('input', async function() {
-    let input = this.value.trim();
-    if (input.length < 3) {
-      cityList.classList.add('hidden');
-      return;
-    }
-    let res = await fetch("https://api.novaposhta.ua/v2.0/json/", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        "apiKey": NP_API_KEY,
-        "modelName": "Address",
-        "calledMethod": "searchSettlements",
-        "methodProperties": {"CityName": input, "Limit": 8}
-      })
-    });
-    let data = await res.json();
-    let addresses = data.data && data.data[0] ? data.data[0].Addresses : [];
-    cityList.innerHTML = '';
-    if (addresses.length) {
+    const input = this.value.trim();
+    if (input.length < 3) { cityList.classList.add('hidden'); return; }
+
+    try {
+      const res = await fetch("https://api.novaposhta.ua/v2.0/json/", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          apiKey: NP_API_KEY,
+          modelName: "Address",
+          calledMethod: "searchSettlements",
+          methodProperties: { CityName: input, Limit: 20 }
+        })
+      });
+      const data = await res.json();
+      const addresses = data.data?.[0]?.Addresses || [];
+      cityList.innerHTML = '';
+
+      if (!addresses.length) { cityList.classList.add('hidden'); return; }
+
       addresses.forEach(addr => {
-        let li = document.createElement('li');
-        li.textContent = addr.Present;
+        const li = document.createElement('li');
+        li.textContent = addr.Present || addr.DescriptionRu || addr.Description;
         li.className = 'px-3 py-1 hover:bg-blue-100 cursor-pointer';
         li.onclick = () => {
-          cityInput.value = addr.Present;
+          cityInput.value = li.textContent;
           selectedCityRef = addr.Ref;
           cityList.classList.add('hidden');
           loadNpOffices(selectedCityRef);
@@ -310,50 +319,71 @@ function reinitNPFields() {
         cityList.appendChild(li);
       });
       cityList.classList.remove('hidden');
-    } else {
+    } catch (err) {
+      console.error(err);
       cityList.classList.add('hidden');
     }
   });
-  document.addEventListener('click', function(e){
-    if (!cityList.contains(e.target) && e.target !== cityInput) {
-      cityList.classList.add('hidden');
-    }
+
+  document.addEventListener('click', e => {
+    if (!cityList.contains(e.target) && e.target !== cityInput) cityList.classList.add('hidden');
   });
+
+  // Слушаем смену типа доставки
+  const radios = document.querySelectorAll('input[name="warehouse_type"]');
+  radios.forEach(r => r.addEventListener('change', () => renderWarehouses()));
 }
 
-// --- Інтеграція з Нова Пошта --- //
-const NP_API_KEY = "1d01eb4736fe82f405ec91de2b78406b"; // <-- твій ключ!
-let selectedCityRef = null;
-let currentWarehouses = [];
+// Загрузка отделений/почтоматов
 async function loadNpOffices(cityRef) {
-  let officeSelect = document.getElementById('np-office');
+  if (!cityRef) return;
+  const officeSelect = document.getElementById('np-office');
   officeSelect.innerHTML = '<option>Завантаження...</option>';
-  let res = await fetch("https://api.novaposhta.ua/v2.0/json/", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      "apiKey": NP_API_KEY,
-      "modelName": "Address",
-      "calledMethod": "getWarehouses",
-      "methodProperties": {"CityRef": cityRef, "Limit": 100}
-    })
-  });
-  let data = await res.json();
-  currentWarehouses = data.data || [];
-  updateWarehouses();
+
+  try {
+    const res = await fetch("https://api.novaposhta.ua/v2.0/json/", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        apiKey: NP_API_KEY,
+        modelName: "AddressGeneral",
+        calledMethod: "getWarehouses",
+        methodProperties: { CityRef: cityRef }
+      })
+    });
+    const data = await res.json();
+    currentWarehouses = data.data || [];
+    renderWarehouses();
+  } catch (err) {
+    console.error(err);
+    officeSelect.innerHTML = '<option>Помилка завантаження</option>';
+  }
 }
-function updateWarehouses() {
-  let officeSelect = document.getElementById('np-office');
-  if (!officeSelect) return;
-  let selectedType = document.querySelector('#delivery-fields input[name="warehouse_type"]:checked').value;
-  let filtered = currentWarehouses.filter(w => w.TypeOfWarehouse === selectedType);
+
+// Отображение отделений в select
+function renderWarehouses() {
+  const officeSelect = document.getElementById('np-office');
+  const selectedType = document.querySelector('#delivery-fields input[name="warehouse_type"]:checked')?.value;
+
+  // Фильтруем по типу только если поле TypeOfWarehouse существует
+  let filtered = currentWarehouses.filter(w => {
+    if (!w.TypeOfWarehouse) return true;
+    if (!selectedType) return true;
+    return w.TypeOfWarehouse === selectedType;
+  });
+
+  officeSelect.innerHTML = '<option value="">Оберіть відділення</option>';
   if (!filtered.length) {
     officeSelect.innerHTML = '<option>Нічого не знайдено</option>';
     return;
   }
-  officeSelect.innerHTML = '<option value="">Оберіть відділення</option>';
-  filtered.forEach(ofc => {
-    officeSelect.innerHTML += `<option value="${ofc.Description}">${ofc.Description}</option>`;
+
+  filtered.forEach(w => {
+    const opt = document.createElement('option');
+    // Берём в приоритете Description, если нет — Number
+    opt.value = w.Description || w.DescriptionRu || w.Number || '';
+    opt.textContent = w.Description || w.DescriptionRu || w.Number || '';
+    officeSelect.appendChild(opt);
   });
 }
 
