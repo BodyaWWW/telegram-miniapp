@@ -107,9 +107,14 @@ from django.conf import settings
 def api_create_order(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Only POST allowed'})
+
     try:
         data = json.loads(request.body)
         tg_id = data.get('telegram_id')
+
+        # ДОДАЙТЕ ЦЕЙ РЯДОК:
+        print(f"DEBUG_REQUEST: Отримано JSON: {data}")
+        print(f"DEBUG_REQUEST: Telegram ID = {tg_id}")
 
         # Створюємо замовлення з урахуванням нових полів моделі
         order = Order.objects.create(
