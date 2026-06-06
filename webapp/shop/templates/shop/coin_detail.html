@@ -72,7 +72,11 @@
         {% if coin.minting %}<li>Монетний двір: <b>{{ coin.minting }}</b></li>{% endif %}
         <li>Категорія: <b>{{ coin.get_category_display }}</b></li>
       </ul>
-      <a href="/cart/" class="bg-blue-600 text-white px-4 py-2 rounded mt-3 block text-center text-base font-semibold">Додати в кошик</a>
+     <button type="button"
+        class="add-to-cart-btn w-full mt-2 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded text-base font-semibold"
+        data-product-id="{{ coin.id }}">
+        Додати в кошик
+      </button>
     </div>
   </div>
 </main>
@@ -84,8 +88,191 @@
 </div>
 
 <script>
+// Логіка додавання/видалення
+  if (favs.includes(coinId)) {
+    favs = favs.filter(id => id !== coinId);
+  } else {
+    favs.push(coinId);
+  }
 
-document.addEventListener('DOMContentLoaded', function() {
+  setFavorites(favs);
+  updateFavoriteButtons(); // Оновлює лічильник у хедері
+  openFavoritesModal();   // Перемальовує список у модалці
+}
+
+function updateCartCounter() {
+    let cartRaw = localStorage.getItem('cart');
+    console.log("Дані кошика в localStorage:", cartRaw); // Це допоможе побачити, чи бачить скрипт кошик
+
+    if (!cartRaw) return; // Якщо кошика немає, виходимо
+
+    let cart = JSON.parse(cartRaw);
+    let counter = document.getElementById('cart-counter-bottom');
+
+    if (!counter) return;
+
+    // Рахуємо суму значень (кількостей)
+    let totalItems = 0;
+    for (let key in cart) {
+        totalItems += parseInt(cart[key].quantity || cart[key]);
+    }
+
+    if (totalItems > 0) {
+        counter.textContent = totalItems;
+        counter.style.display = 'flex'; // або 'block'
+    } else {
+        counter.style.display = 'none';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', updateCartCounter);
+
+const allCoins = {{ all_coins_json|safe }};
+
+
+</script>
+<script>
+// --- 1. Дані (Завантажуються з сервера) ---
+const allCoins = [
+  {% for coin in coins %}
+  {
+    id: {{ coin.id }},
+    name: "{{ coin.name|escapejs }}",
+    price: parseFloat("{{ coin.price }}"),
+    image: "{{ coin.image.url }}",
+    material: "{{ coin.material|escapejs }}",
+    year: "{{ coin.year }}",
+    circulation: "{{ coin.circulation|default:'' }}",
+    url: "{% url 'shop:coin_detail' coin.pk %}"
+  },
+  {% endfor %}
+];
+
+// --- 2. Логіка Кошика ---
+function updateCartCounter() {
+    let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+    let sum = 0;
+    // Рахуємо суму quantity (якщо є) або просто кількість ключів
+    Object.values(cart).forEach(item => {
+        sum += (typeof item === 'object' && item.quantity) ? item.quantity : 1;
+    });
+
+    let counter = document.getElementById('cart-counter-bottom');
+    if (counter) {
+        counter.textContent = sum;
+        counter.style.display = sum > 0 ? 'inline-block' : 'none';
+    }
+}
+
+function markButtonInCart(productId) {
+    let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+    let btn = document.querySelector('.add-to-cart-btn[data-product-id="'+productId+'"]');
+    if (!btn) return;
+
+    if (cart[productId]) {
+        btn.textContent = 'В кошику';
+        btn.className = btn.className.replace(/bg-blue-500|bg-blue-600/g, '').replace(/hover:bg-blue-600/g, '') + ' bg-green-500 text-white py-2 rounded';
+        btn.disabled = true;
+    }
+}
+
+function initCartButtons() {
+    document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+        const productId = btn.getAttribute('data-product-id');
+        markButtonInCart(productId);
+        btn.onclick = function() {
+            let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+            if (cart[productId]) return;
+            cart[productId] = { quantity: 1 };
+            localStorage.setItem('cart', JSON.stringify(cart));
+            markButtonInCart(productId);
+            updateCartCounter();
+        };
+    });
+}
+
+// --- 3. Логіка Лайків ---
+function getFavorites() {
+    try { return JSON.parse(localStorage.getItem('favorites') || '[]'); } catch(e){ return []; }
+}
+function setFavorites(ids) { localStorage.setItem('favorites', JSON.stringify(ids)); }
+
+function updateFavoriteButtons() {
+    let favs = getFavorites();
+    document.querySelectorAll('.favorite-btn').forEach(btn => {
+        let parent = btn.closest('[data-coin-id]');
+        let coinId = parent ? parseInt(parent.getAttribute('data-coin-id')) : null;
+        if (!coinId) return;
+
+        let svg = btn.querySelector('svg');
+        if (svg) {
+            svg.style.fill = favs.includes(coinId) ? '#e74c3c' : 'none';
+            svg.style.stroke = '#e74c3c';
+        }
+    });
+    let counter = document.getElementById('fav-counter');
+    if (counter) {
+        counter.textContent = favs.length;
+        counter.style.display = favs.length > 0 ? 'block' : 'none';
+    }
+}
+
+function toggleFavorite(coinId, btn) {
+    let favs = getFavorites();
+    coinId = parseInt(coinId);
+    if (favs.includes(coinId)) {
+        favs = favs.filter(id => id !== coinId);
+    } else {
+        favs.push(coinId);
+    }
+    setFavorites(favs);
+    updateFavoriteButtons();
+    if (!document.getElementById('favorites-modal-bg').classList.contains('hidden')) {
+        openFavoritesModal();
+    }
+}
+
+// --- 4. Пошук та Модалки ---
+function openFavoritesModal() {
+    let favs = getFavorites();
+    let favList = document.getElementById('favorites-list');
+    let favEmpty = document.getElementById('favorites-empty');
+    favList.innerHTML = '';
+    if (favs.length === 0) {
+        favEmpty.style.display = 'block';
+    } else {
+        favEmpty.style.display = 'none';
+        favs.forEach(fid => {
+            let coin = allCoins.find(c => c.id === fid);
+            if (!coin) return;
+            favList.innerHTML += `
+                <div class="flex gap-3 items-center bg-gray-50 rounded-lg shadow px-3 py-2">
+                    <img src="${coin.image}" class="w-16 h-16 rounded object-cover">
+                    <div class="flex-1">
+                        <div class="font-bold text-blue-800">${coin.name}</div>
+                        <div class="text-blue-700 font-bold">${coin.price} грн</div>
+                        <a href="${coin.url}" class="text-sm text-blue-600 hover:underline">Перейти</a>
+                    </div>
+                </div>`;
+        });
+    }
+    document.getElementById('favorites-modal-bg').classList.remove('hidden');
+}
+
+function closeFavoritesModal() { document.getElementById('favorites-modal-bg').classList.add('hidden'); }
+
+// --- 5. Ініціалізація ---
+document.addEventListener('DOMContentLoaded', function(){
+    initCartButtons();
+    updateCartCounter();
+    updateFavoriteButtons();
+
+    // Ініціалізація Swiper (якщо він є на сторінці)
+    if (typeof Swiper !== 'undefined') {
+        new Swiper(".mySwiper", { loop: true, autoplay: { delay: 3000 } });
+    }
+});
+  document.addEventListener('DOMContentLoaded', function() {
   // Карусель
   const images = document.querySelectorAll('.carousel-img');
   const thumbs = document.querySelectorAll('.thumb-img');

@@ -108,3 +108,4 @@ function toggleFavorite(coinId) {
         updateHeartButton(coinId);
       });
     });
+

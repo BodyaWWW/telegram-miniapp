@@ -91,6 +91,49 @@
 
 <!-- Лайки js (универсальный) -->
 <script>
+  function toggleFavorite(coinId, btn) {
+  let favs = getFavorites();
+  coinId = parseInt(coinId);
+
+  // Логіка додавання/видалення
+  if (favs.includes(coinId)) {
+    favs = favs.filter(id => id !== coinId);
+  } else {
+    favs.push(coinId);
+  }
+
+  setFavorites(favs);
+  updateFavoriteButtons(); // Оновлює лічильник у хедері
+  openFavoritesModal();   // Перемальовує список у модалці
+}
+
+function updateCartCounter() {
+    let cartRaw = localStorage.getItem('cart');
+    console.log("Дані кошика в localStorage:", cartRaw); // Це допоможе побачити, чи бачить скрипт кошик
+
+    if (!cartRaw) return; // Якщо кошика немає, виходимо
+
+    let cart = JSON.parse(cartRaw);
+    let counter = document.getElementById('cart-counter-bottom');
+
+    if (!counter) return;
+
+    // Рахуємо суму значень (кількостей)
+    let totalItems = 0;
+    for (let key in cart) {
+        totalItems += parseInt(cart[key].quantity || cart[key]);
+    }
+
+    if (totalItems > 0) {
+        counter.textContent = totalItems;
+        counter.style.display = 'flex'; // або 'block'
+    } else {
+        counter.style.display = 'none';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', updateCartCounter);
+
 const allCoins = {{ all_coins_json|safe }};
 
 function getFavorites() {

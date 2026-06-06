@@ -79,10 +79,10 @@
         <div class="mt-auto pt-2">
           <p class="font-bold text-blue-700 text-lg">{{ coin.price }} грн</p>
           <button type="button"
-                  class="add-to-cart-btn w-full mt-2 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded text-base font-semibold"
-                  data-product-id="{{ coin.id }}">
-            Додати в кошик
-          </button>
+        class="add-to-cart-btn w-full mt-2 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded text-base font-semibold"
+        data-product-id="{{ coin.id }}">
+          Додати в кошик
+        </button>
         </div>
       </div>
     {% empty %}
@@ -111,45 +111,13 @@
 </nav>
 
 <script>
-
-// all_coins_json должен содержать ВСЕ монеты сайта для работы модалки!
-const allCoins = {{ all_coins_json|safe }};
-
-function getFavorites() {
-  try { return JSON.parse(localStorage.getItem('favorites') || '[]'); } catch(e){ return []; }
-}
-function setFavorites(ids) {
-  localStorage.setItem('favorites', JSON.stringify(ids));
-}
-function updateFavoriteButtons() {
-  let favs = getFavorites();
-  // Все кнопки (и на карточках, и в модалке)
-  document.querySelectorAll('.favorite-btn').forEach(btn => {
-    let parent = btn.closest('[data-coin-id]');
-    let coinId = parent ? parseInt(parent.getAttribute('data-coin-id')) : null;
-    if (!coinId && btn.hasAttribute('data-coin-id')) coinId = parseInt(btn.getAttribute('data-coin-id'));
-    // Кнопки в модалке — пробуем парсить через onclick
-    if (!coinId && btn.onclick) {
-      let m = btn.onclick.toString().match(/toggleFavorite\((\d+)/);
-      if (m) coinId = parseInt(m[1]);
-    }
-    if (coinId && btn.querySelector('svg')) {
-      if (favs.includes(coinId)) {
-        btn.querySelector('svg').style.fill = '#e74c3c';
-        btn.querySelector('svg').style.stroke = '#e74c3c';
-      } else {
-        btn.querySelector('svg').style.fill = 'none';
-        btn.querySelector('svg').style.stroke = '#e74c3c';
-      }
-    }
-  });
-  // Логика лайков
+// --- 1. Дані (Завантажуються з сервера) ---
 const allCoins = [
   {% for coin in coins %}
   {
     id: {{ coin.id }},
     name: "{{ coin.name|escapejs }}",
-    price: "{{ coin.price }}",
+    price: parseFloat("{{ coin.price }}"),
     image: "{{ coin.image.url }}",
     material: "{{ coin.material|escapejs }}",
     year: "{{ coin.year }}",
@@ -159,86 +127,129 @@ const allCoins = [
   {% endfor %}
 ];
 
-function getFavorites() {
-  try { return JSON.parse(localStorage.getItem('favorites') || '[]'); } catch(e){ return []; }
-}
-function setFavorites(ids) {
-  localStorage.setItem('favorites', JSON.stringify(ids));
-}
-function updateFavoriteButtons() {
-  let favs = getFavorites();
-  document.querySelectorAll('.favorite-btn').forEach(btn => {
-    let parent = btn.closest('[data-coin-id]');
-    let coinId = parent ? parseInt(parent.getAttribute('data-coin-id')) : null;
-    if (!coinId) return;
-    if (favs.includes(coinId)) {
-      btn.querySelector('svg').style.fill = '#e74c3c';
-      btn.querySelector('svg').style.stroke = '#e74c3c';
-    } else {
-      btn.querySelector('svg').style.fill = 'none';
-      btn.querySelector('svg').style.stroke = '#e74c3c';
-    }
-  });
-  // Счетчик
-  let counter = document.getElementById('fav-counter');
-  if (counter) {
-    if (favs.length > 0) { counter.textContent = favs.length; counter.style.display = 'block'; }
-    else { counter.style.display = 'none'; }
-  }
-}
-function toggleFavorite(coinId, btn) {
-  let favs = getFavorites();
-  coinId = parseInt(coinId);
-  if (favs.includes(coinId)) {
-    favs = favs.filter(id => id !== coinId);
-  } else {
-    favs.push(coinId);
-  }
-  setFavorites(favs);
-  updateFavoriteButtons();
-}
-// Открыть/закрыть модалку с лайками
-function openFavoritesModal() {
-  let favs = getFavorites();
-  let favList = document.getElementById('favorites-list');
-  let favEmpty = document.getElementById('favorites-empty');
-  favList.innerHTML = '';
-  if (favs.length === 0) {
-    favEmpty.style.display = '';
-  } else {
-    favEmpty.style.display = 'none';
-    favs.forEach(fid => {
-      let coin = allCoins.find(c => c.id === fid);
-      if (!coin) return;
-      favList.innerHTML += `
-        <div class="flex gap-3 items-center bg-gray-50 rounded-lg shadow px-3 py-2">
-          <img src="${coin.image}" class="w-16 h-16 rounded shadow object-cover">
-          <div>
-            <div class="font-bold text-blue-800">${coin.name}</div>
-            <div class="text-xs text-gray-500">${coin.year}, ${coin.material}</div>
-            <div class="text-blue-700 font-bold">${coin.price} грн</div>
-            <a href="${coin.url}" class="text-sm text-blue-600 hover:underline mt-1 block">Перейти</a>
-          </div>
-          <button class="ml-auto favorite-btn" onclick="toggleFavorite(${coin.id}, this)">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="#e74c3c" viewBox="0 0 24 24" stroke="#e74c3c" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21C12 21 4 13.713 4 8.795a4.2 4.2 0 018.193-2.025A4.2 4.2 0 0120 8.795C20 13.713 12 21 12 21z"/>
-            </svg>
-          </button>
-        </div>
-      `;
+// --- 2. Логіка Кошика ---
+function updateCartCounter() {
+    let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+    let sum = 0;
+    // Рахуємо суму quantity (якщо є) або просто кількість ключів
+    Object.values(cart).forEach(item => {
+        sum += (typeof item === 'object' && item.quantity) ? item.quantity : 1;
     });
-  }
-  document.getElementById('favorites-modal-bg').classList.remove('hidden');
-}
-function closeFavoritesModal() {
-  document.getElementById('favorites-modal-bg').classList.add('hidden');
+
+    let counter = document.getElementById('cart-counter-bottom');
+    if (counter) {
+        counter.textContent = sum;
+        counter.style.display = sum > 0 ? 'inline-block' : 'none';
+    }
 }
 
+function markButtonInCart(productId) {
+    let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+    let btn = document.querySelector('.add-to-cart-btn[data-product-id="'+productId+'"]');
+    if (!btn) return;
+
+    if (cart[productId]) {
+        btn.textContent = 'В кошику';
+        btn.className = btn.className.replace(/bg-blue-500|bg-blue-600/g, '').replace(/hover:bg-blue-600/g, '') + ' bg-green-500 text-white py-2 rounded';
+        btn.disabled = true;
+    }
+}
+
+function initCartButtons() {
+    document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+        const productId = btn.getAttribute('data-product-id');
+        markButtonInCart(productId);
+        btn.onclick = function() {
+            let cart = JSON.parse(localStorage.getItem('cart') || '{}');
+            if (cart[productId]) return;
+            cart[productId] = { quantity: 1 };
+            localStorage.setItem('cart', JSON.stringify(cart));
+            markButtonInCart(productId);
+            updateCartCounter();
+        };
+    });
+}
+
+// --- 3. Логіка Лайків ---
+function getFavorites() {
+    try { return JSON.parse(localStorage.getItem('favorites') || '[]'); } catch(e){ return []; }
+}
+function setFavorites(ids) { localStorage.setItem('favorites', JSON.stringify(ids)); }
+
+function updateFavoriteButtons() {
+    let favs = getFavorites();
+    document.querySelectorAll('.favorite-btn').forEach(btn => {
+        let parent = btn.closest('[data-coin-id]');
+        let coinId = parent ? parseInt(parent.getAttribute('data-coin-id')) : null;
+        if (!coinId) return;
+
+        let svg = btn.querySelector('svg');
+        if (svg) {
+            svg.style.fill = favs.includes(coinId) ? '#e74c3c' : 'none';
+            svg.style.stroke = '#e74c3c';
+        }
+    });
+    let counter = document.getElementById('fav-counter');
+    if (counter) {
+        counter.textContent = favs.length;
+        counter.style.display = favs.length > 0 ? 'block' : 'none';
+    }
+}
+
+function toggleFavorite(coinId, btn) {
+    let favs = getFavorites();
+    coinId = parseInt(coinId);
+    if (favs.includes(coinId)) {
+        favs = favs.filter(id => id !== coinId);
+    } else {
+        favs.push(coinId);
+    }
+    setFavorites(favs);
+    updateFavoriteButtons();
+    if (!document.getElementById('favorites-modal-bg').classList.contains('hidden')) {
+        openFavoritesModal();
+    }
+}
+
+// --- 4. Пошук та Модалки ---
+function openFavoritesModal() {
+    let favs = getFavorites();
+    let favList = document.getElementById('favorites-list');
+    let favEmpty = document.getElementById('favorites-empty');
+    favList.innerHTML = '';
+    if (favs.length === 0) {
+        favEmpty.style.display = 'block';
+    } else {
+        favEmpty.style.display = 'none';
+        favs.forEach(fid => {
+            let coin = allCoins.find(c => c.id === fid);
+            if (!coin) return;
+            favList.innerHTML += `
+                <div class="flex gap-3 items-center bg-gray-50 rounded-lg shadow px-3 py-2">
+                    <img src="${coin.image}" class="w-16 h-16 rounded object-cover">
+                    <div class="flex-1">
+                        <div class="font-bold text-blue-800">${coin.name}</div>
+                        <div class="text-blue-700 font-bold">${coin.price} грн</div>
+                        <a href="${coin.url}" class="text-sm text-blue-600 hover:underline">Перейти</a>
+                    </div>
+                </div>`;
+        });
+    }
+    document.getElementById('favorites-modal-bg').classList.remove('hidden');
+}
+
+function closeFavoritesModal() { document.getElementById('favorites-modal-bg').classList.add('hidden'); }
+
+// --- 5. Ініціалізація ---
 document.addEventListener('DOMContentLoaded', function(){
-  initCartButtons();
-  updateCartCounter();
-  updateFavoriteButtons();
-  window.addEventListener('focus', updateFavoriteButtons);
+    initCartButtons();
+    updateCartCounter();
+    updateFavoriteButtons();
+
+    // Ініціалізація Swiper (якщо він є на сторінці)
+    if (typeof Swiper !== 'undefined') {
+        new Swiper(".mySwiper", { loop: true, autoplay: { delay: 3000 } });
+    }
 });
 </script>
 </body>

@@ -4,20 +4,49 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import requests
 from django.views.decorators.http import require_GET
+from itertools import chain
+import json
+from .models import Coin, Banknote, Order, OrderItem, SliderBanner
 
-from .models import Coin, Banknote, Order, OrderItem
+from django.shortcuts import render
+from .models import Coin, Banknote, SliderBanner
+
+
+from django.db.models import Min, Max
 
 def index(request):
     coins = Coin.objects.all()
-    banknotes = Banknote.objects.all()
+    banners = SliderBanner.objects.filter(is_active=True).select_related('coin')
 
-    # Фильтрация по году (если год передан в GET-запросе)
-    year_filter = request.GET.get('year')
-    if year_filter:
-        coins = coins.filter(year=year_filter)
-        banknotes = banknotes.filter(year=year_filter)
+    # Отримання параметрів
+    category = request.GET.get('category')
+    material = request.GET.get('material')
+    year = request.GET.get('year')
+    price_min = request.GET.get('price_min')
+    price_max = request.GET.get('price_max')
+    sort = request.GET.get('sort')
 
-    return render(request, 'shop/index.html', {'coins': coins, 'banknotes': banknotes})
+    # Фільтрація
+    if category: coins = coins.filter(category=category)
+    if material: coins = coins.filter(material=material)
+    if year: coins = coins.filter(year=year)
+    if price_min: coins = coins.filter(price__gte=price_min)
+    if price_max: coins = coins.filter(price__lte=price_max)
+
+    # Сортування
+    if sort == 'price_asc': coins = coins.order_by('price')
+    elif sort == 'price_desc': coins = coins.order_by('-price')
+    elif sort == 'year_new': coins = coins.order_by('-year')
+    elif sort == 'year_old': coins = coins.order_by('year')
+
+    context = {
+        'coins': coins,
+        'banners': banners,
+        'category_choices': Coin.CATEGORY_CHOICES,
+        'materials': Coin.objects.values_list('material', flat=True).distinct(),
+        'years': Coin.objects.values_list('year', flat=True).distinct().order_by('-year'),
+    }
+    return render(request, 'shop/index.html', context)
 
 def coin_detail(request, pk):
     coin = get_object_or_404(Coin, pk=pk)
@@ -68,42 +97,65 @@ def catalog_view(request):
         'years': years,
     }
     return render(request, 'shop/index.html', context)
+
+
+import requests
+from django.conf import settings
+
+
 @csrf_exempt
 def api_create_order(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Only POST allowed'})
     try:
         data = json.loads(request.body)
-        lastname = data.get('lastname')
-        firstname = data.get('firstname')
-        name = f"{lastname} {firstname}"
-        phone = data.get('phone')
-        comment = data.get('comment')
-        city = data.get('city')
-        np_office = data.get('np_office')
-        payment = data.get('payment')
-        bank = data.get('bank')
-        cart = data.get('cart', {})
+        tg_id = data.get('telegram_id')
+
+        # Створюємо замовлення з урахуванням нових полів моделі
         order = Order.objects.create(
-            name=name, phone=phone, comment=comment,
-            city=city, np_office=np_office, payment=payment, bank=bank
+            lastname=data.get('lastname'),
+            firstname=data.get('firstname'),
+            phone=data.get('phone'),
+            comment=data.get('comment'),
+            delivery_service=data.get('delivery_service'),
+            telegram_user_id=tg_id
         )
+
+        # Додавання товарів (як у вас було)
+        cart = data.get('cart', {})
+        items_summary = ""
         for cid, obj in cart.items():
-            coin = Coin.objects.get(id=cid)
-            qty = obj.get('quantity', 1)
-            OrderItem.objects.create(order=order, product=coin, quantity=qty, price=coin.price)
+            try:
+                coin = Coin.objects.get(id=cid)
+                qty = obj.get('quantity', 1)
+                OrderItem.objects.create(order=order, product=coin, quantity=qty, price=coin.price)
+                items_summary += f"{coin.name} (x{qty}) - {coin.price * qty} грн\n"
+            except Coin.DoesNotExist:
+                continue
+
+        # Відправка повідомлення в ТГ
+        if tg_id:
+            token = "7810642321:AAGxqRFwFBqRS0hBR9yseX5UpguRKu4sh8k"
+            msg = (f"✅ Замовлення №{order.id} прийнято!\n\n"
+                   f"Клієнт: {data.get('lastname')} {data.get('firstname')}\n"
+                   f"Телефон: {data.get('phone')}\n"
+                   f"Доставка: {data.get('delivery_service')}\n\n"
+                   f"Товари:\n{items_summary}\n\n"
+                   f"Уточніть, будь ласка, адресу/відділення для доставки.")
+            requests.get(f"https://api.telegram.org/bot{token}/sendMessage?chat_id={tg_id}&text={msg}")
+
         return JsonResponse({'success': True})
+
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
-
 def cart_view(request):
     coins = Coin.objects.all()
-    coins_json = json.dumps([
+    coins_data = [
         {'id': c.id, 'name': c.name, 'price': float(c.price), 'image': c.image.url if c.image else ''}
         for c in coins
-    ])
+    ]
     return render(request, 'shop/cart.html', {
-        'coins_json': coins_json,
+        'coins_json': json.dumps(coins_data),
         'csrf_token': request.COOKIES.get('csrftoken'),
     })
 @csrf_exempt
@@ -156,10 +208,28 @@ def catalog(request):
             "image": "data:image/jpeg;base64,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",
         },
     ]
+    all_coins = Coin.objects.all()
+    all_coins_json = json.dumps([
+        {
+            'id': c.id,
+            'name': c.name,
+            'price': float(c.price),
+            'image': c.image.url if c.image else '',
+            'url': f'/coin/{c.id}/'
+        } for c in all_coins
+    ])
+
+    context = {
+        'categories': categories,
+        'all_coins_json': all_coins_json  # Це потрібно і для лайків, і для кошика
+    }
+    return render(request, 'shop/catalog.html', context)
     # можно добавить products_count если хочешь показывать их
     return render(request, "shop/catalog.html", {"categories": categories, "active_menu": "catalog"})
+
+
 def category_detail(request, slug):
-    # Определяем: монеты или банкноты
+    # Визначаємо: монети чи банкноти
     if slug in [c[0] for c in Coin.CATEGORY_CHOICES]:
         products = Coin.objects.filter(category=slug)
         template = "shop/category_coins.html"
@@ -167,13 +237,19 @@ def category_detail(request, slug):
         products = Banknote.objects.filter(category=slug)
         template = "shop/category_banknotes.html"
     else:
-        # Если категории нет, 404
         from django.http import Http404
         raise Http404("Категорія не знайдена")
 
+    # Виправляємо: об'єднуємо два QuerySet в один список для JSON
+    all_coins = Coin.objects.all()
+    all_coins_json = json.dumps([
+        {'id': c.id, 'name': c.name, 'price': float(c.price), 'image': c.image.url if c.image else ''}
+        for c in all_coins
+    ])
     return render(request, template, {
         "products": products,
         "slug": slug,
+        "all_coins_json": all_coins_json  # Ви додали це
     })
 @require_GET
 def ajax_search_coins(request):
