@@ -398,20 +398,35 @@ function updateBankCard() {
 
 // --- Відправка замовлення ---
 function submitOrder() {
-  // Додаємо безпечну перевірку
+  // 1. Обов'язково повідомляємо Telegram, що Mini App готовий до роботи
+  if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+  }
+
+  // 2. Отримуємо користувача.
+  // initDataUnsafe - це зручний об'єкт, але він працює лише всередині Telegram.
   const tgUser = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp.initDataUnsafe.user : null;
 
-  // Збираємо дані (використовуємо ?. для безпеки, якщо елемент не знайдено)
+  // ДЕБАГ: Перевіримо в консолі, чи бачимо ми ID
+  console.log("Дані користувача з Telegram:", tgUser);
+
+  if (!tgUser || !tgUser.id) {
+      console.warn("Попередження: ID користувача не отримано. Можливо, відкрили не в Telegram?");
+  }
+
+  // 3. Збираємо дані
   let data = {
     lastname: document.querySelector('[name="lastname"]')?.value || '',
     firstname: document.querySelector('[name="firstname"]')?.value || '',
     phone: document.querySelector('[name="phone"]')?.value || '',
     comment: document.querySelector('[name="comment"]')?.value || '',
+    // Якщо ID немає, відправимо null, Django це обробить
     telegram_id: tgUser ? tgUser.id : null,
     delivery_service: selectedDelivery,
     cart: JSON.parse(localStorage.getItem('cart') || '{}'),
   };
 
+  // 4. Відправка
   fetch('/api/create_order/', {
     method: 'POST',
     headers: {
@@ -425,13 +440,16 @@ function submitOrder() {
     if (res.success) {
       alert('Замовлення оформлено!');
       localStorage.removeItem('cart');
-      // Закриваємо тільки якщо ми в Telegram
       if (window.Telegram && window.Telegram.WebApp) {
           window.Telegram.WebApp.close();
       }
     } else {
       alert('Помилка сервера: ' + res.error);
     }
+  })
+  .catch(err => {
+      console.error("Помилка мережі:", err);
+      alert('Сталася помилка при відправці замовлення.');
   });
 }
 document.addEventListener('DOMContentLoaded', function() {
