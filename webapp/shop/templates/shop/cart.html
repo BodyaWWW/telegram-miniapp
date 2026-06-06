@@ -398,6 +398,8 @@ function updateBankCard() {
 
 // --- Відправка замовлення ---
 function submitOrder() {
+  console.log("WebApp initData:", window.Telegram?.WebApp?.initData);
+  console.log("WebApp user:", window.Telegram?.WebApp?.initDataUnsafe?.user);
   let tg_id = null;
 
   // Спробуємо взяти ID з initDataUnsafe
