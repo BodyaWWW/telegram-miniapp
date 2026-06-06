@@ -398,37 +398,62 @@ function updateBankCard() {
 
 // --- Відправка замовлення ---
 function submitOrder() {
-  console.log("WebApp initData:", window.Telegram?.WebApp?.initData);
-  console.log("WebApp user:", window.Telegram?.WebApp?.initDataUnsafe?.user);
-  let tg_id = null;
-
-  // Спробуємо взяти ID з initDataUnsafe
-  if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
-      tg_id = window.Telegram.WebApp.initDataUnsafe.user.id;
+  // 1. Ініціалізація WebApp (важливо для мобільних пристроїв)
+  if (window.Telegram?.WebApp) {
+      window.Telegram.WebApp.ready();
   }
 
-  // ЯКЩО ID НЕМАЄ (а він у вас None), спробуємо дістати його з initData (це рядок)
-  if (!tg_id && window.Telegram?.WebApp?.initData) {
-      const initData = new URLSearchParams(window.Telegram.WebApp.initData);
-      const userStr = initData.get('user');
-      if (userStr) {
-          const userObj = JSON.parse(userStr);
-          tg_id = userObj.id;
-      }
+  // 2. Функція безпечного отримання ID
+  const getTgId = () => {
+    const webApp = window.Telegram?.WebApp;
+
+    // Спосіб А: Прямий доступ (найшвидший)
+    if (webApp?.initDataUnsafe?.user?.id) {
+        console.log("DEBUG: ID знайдено через initDataUnsafe");
+        return webApp.initDataUnsafe.user.id;
+    }
+
+    // Спосіб Б: Парсинг рядка ініціалізації (найбільш надійний на iOS)
+    if (webApp?.initData) {
+        try {
+            const params = new URLSearchParams(webApp.initData);
+            const userStr = params.get('user');
+            if (userStr) {
+                const userObj = JSON.parse(userStr);
+                console.log("DEBUG: ID знайдено через парсинг initData");
+                return userObj.id;
+            }
+        } catch (e) {
+            console.error("DEBUG: Помилка парсингу initData:", e);
+        }
+    }
+
+    return null;
+  };
+
+  const tg_id = getTgId();
+
+  // Якщо ID все ще null, виводимо діагностику
+  if (!tg_id) {
+      console.error("КРИТИЧНА ПОМИЛКА: Не вдалося отримати tg_id!");
+      console.error("initData:", window.Telegram?.WebApp?.initData);
+      console.error("initDataUnsafe:", window.Telegram?.WebApp?.initDataUnsafe);
   }
 
-  console.log("DEBUG_JS: Знайдений ID:", tg_id);
+  console.log("DEBUG_JS: Фінальний ID для відправки:", tg_id);
 
+  // 3. Збір даних
   let data = {
     lastname: document.querySelector('[name="lastname"]')?.value || '',
     firstname: document.querySelector('[name="firstname"]')?.value || '',
     phone: document.querySelector('[name="phone"]')?.value || '',
     comment: document.querySelector('[name="comment"]')?.value || '',
-    telegram_id: tg_id, // Тепер тут буде справжній ID
+    telegram_id: tg_id,
     delivery_service: selectedDelivery,
     cart: JSON.parse(localStorage.getItem('cart') || '{}'),
   };
 
+  // 4. Відправка на сервер
   fetch('/api/create_order/', {
     method: 'POST',
     headers: {
@@ -440,12 +465,18 @@ function submitOrder() {
   .then(r => r.json())
   .then(res => {
     if (res.success) {
-      alert('Замовлення успішно оформлено!');
+      alert('Замовлення оформлено!');
       localStorage.removeItem('cart');
-      window.Telegram.WebApp.close();
+      if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.close();
+      }
     } else {
-      alert('Помилка: ' + res.error);
+      alert('Помилка сервера: ' + (res.error || 'Невідома помилка'));
     }
+  })
+  .catch(err => {
+      console.error("Network Error:", err);
+      alert('Помилка зв\'язку з сервером');
   });
 }
 document.addEventListener('DOMContentLoaded', function() {
