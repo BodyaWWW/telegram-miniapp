@@ -89,6 +89,7 @@
         onclick="selectDelivery('ukr')">
         <div class="font-bold text-lg mb-1">Укрпошта</div>
       </div>
+      <div id="delivery-fields"></div>
     </div>
   </div>
   <button type="button" class="w-full bg-blue-600 text-white px-4 py-3 rounded text-base font-semibold" onclick="submitOrder()">Замовити</button>
@@ -397,13 +398,15 @@ function updateBankCard() {
 
 // --- Відправка замовлення ---
 function submitOrder() {
-  const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
+  // Додаємо безпечну перевірку
+  const tgUser = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp.initDataUnsafe.user : null;
 
+  // Збираємо дані (використовуємо ?. для безпеки, якщо елемент не знайдено)
   let data = {
-    lastname: document.querySelector('#step1 [name="lastname"]').value,
-    firstname: document.querySelector('#step1 [name="firstname"]').value,
-    phone: document.querySelector('#step1 [name="phone"]').value,
-    comment: document.querySelector('#step1 [name="comment"]').value,
+    lastname: document.querySelector('[name="lastname"]')?.value || '',
+    firstname: document.querySelector('[name="firstname"]')?.value || '',
+    phone: document.querySelector('[name="phone"]')?.value || '',
+    comment: document.querySelector('[name="comment"]')?.value || '',
     telegram_id: tgUser ? tgUser.id : null,
     delivery_service: selectedDelivery,
     cart: JSON.parse(localStorage.getItem('cart') || '{}'),
@@ -411,15 +414,23 @@ function submitOrder() {
 
   fetch('/api/create_order/', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+    headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': CSRF_TOKEN
+    },
     body: JSON.stringify(data)
-  }).then(r=>r.json()).then(res=>{
+  })
+  .then(r => r.json())
+  .then(res => {
     if (res.success) {
       alert('Замовлення оформлено!');
       localStorage.removeItem('cart');
-      window.Telegram.WebApp.close();
+      // Закриваємо тільки якщо ми в Telegram
+      if (window.Telegram && window.Telegram.WebApp) {
+          window.Telegram.WebApp.close();
+      }
     } else {
-      alert('Помилка: ' + (res.error || 'Спробуйте ще раз.'));
+      alert('Помилка сервера: ' + res.error);
     }
   });
 }
