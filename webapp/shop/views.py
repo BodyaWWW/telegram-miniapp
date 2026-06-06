@@ -134,16 +134,22 @@ def api_create_order(request):
                 continue
 
         # Відправка повідомлення в ТГ
-        if tg_id:
-            token = "7810642321:AAGxqRFwFBqRS0hBR9yseX5UpguRKu4sh8k"
-            msg = (f"✅ Замовлення №{order.id} прийнято!\n\n"
-                   f"Клієнт: {data.get('lastname')} {data.get('firstname')}\n"
-                   f"Телефон: {data.get('phone')}\n"
-                   f"Доставка: {data.get('delivery_service')}\n\n"
-                   f"Товари:\n{items_summary}\n\n"
-                   f"Уточніть, будь ласка, адресу/відділення для доставки.")
-            requests.get(f"https://api.telegram.org/bot{token}/sendMessage?chat_id={tg_id}&text={msg}")
+        token = "7810642321:AAGxqRFwFBqRS0hBR9yseX5UpguRKu4sh8k"
+        ADMIN_ID = 617454203
 
+        # 1. Повідомлення клієнту (якщо є ID)
+        if tg_id:
+            msg_client = (f"✅ Замовлення №{order.id} прийнято!\n\n"
+                          f"Очікуйте, менеджер зв'яжеться з вами.")
+            requests.get(f"https://api.telegram.org/bot{token}/sendMessage?chat_id={tg_id}&text={msg_client}")
+
+        # 2. Повідомлення ВАМ (Адміну) - це головне!
+        msg_admin = (f"🔔 Нове замовлення №{order.id}\n\n"
+                     f"Клієнт: {data.get('lastname')} {data.get('firstname')}\n"
+                     f"Телефон: {data.get('phone')}\n"
+                     f"Доставка: {data.get('delivery_service')}\n\n"
+                     f"Товари:\n{items_summary}")
+        requests.get(f"https://api.telegram.org/bot{token}/sendMessage?chat_id={ADMIN_ID}&text={msg_admin}")
         return JsonResponse({'success': True})
 
     except Exception as e:
