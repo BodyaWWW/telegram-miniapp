@@ -398,35 +398,35 @@ function updateBankCard() {
 
 // --- Відправка замовлення ---
 function submitOrder() {
-  // 1. Обов'язково повідомляємо Telegram, що Mini App готовий до роботи
-  if (window.Telegram && window.Telegram.WebApp) {
-      window.Telegram.WebApp.ready();
+  let tg_id = null;
+
+  // Спробуємо взяти ID з initDataUnsafe
+  if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+      tg_id = window.Telegram.WebApp.initDataUnsafe.user.id;
   }
 
-  // 2. Отримуємо користувача.
-  // initDataUnsafe - це зручний об'єкт, але він працює лише всередині Telegram.
-  const tgUser = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp.initDataUnsafe.user : null;
-
-  // ДЕБАГ: Перевіримо в консолі, чи бачимо ми ID
-  console.log("Дані користувача з Telegram:", tgUser);
-
-  if (!tgUser || !tgUser.id) {
-      console.warn("Попередження: ID користувача не отримано. Можливо, відкрили не в Telegram?");
+  // ЯКЩО ID НЕМАЄ (а він у вас None), спробуємо дістати його з initData (це рядок)
+  if (!tg_id && window.Telegram?.WebApp?.initData) {
+      const initData = new URLSearchParams(window.Telegram.WebApp.initData);
+      const userStr = initData.get('user');
+      if (userStr) {
+          const userObj = JSON.parse(userStr);
+          tg_id = userObj.id;
+      }
   }
 
-  // 3. Збираємо дані
+  console.log("DEBUG_JS: Знайдений ID:", tg_id);
+
   let data = {
     lastname: document.querySelector('[name="lastname"]')?.value || '',
     firstname: document.querySelector('[name="firstname"]')?.value || '',
     phone: document.querySelector('[name="phone"]')?.value || '',
     comment: document.querySelector('[name="comment"]')?.value || '',
-    // Якщо ID немає, відправимо null, Django це обробить
-    telegram_id: tgUser ? tgUser.id : null,
+    telegram_id: tg_id, // Тепер тут буде справжній ID
     delivery_service: selectedDelivery,
     cart: JSON.parse(localStorage.getItem('cart') || '{}'),
   };
 
-  // 4. Відправка
   fetch('/api/create_order/', {
     method: 'POST',
     headers: {
@@ -438,18 +438,12 @@ function submitOrder() {
   .then(r => r.json())
   .then(res => {
     if (res.success) {
-      alert('Замовлення оформлено!');
+      alert('Замовлення успішно оформлено!');
       localStorage.removeItem('cart');
-      if (window.Telegram && window.Telegram.WebApp) {
-          window.Telegram.WebApp.close();
-      }
+      window.Telegram.WebApp.close();
     } else {
-      alert('Помилка сервера: ' + res.error);
+      alert('Помилка: ' + res.error);
     }
-  })
-  .catch(err => {
-      console.error("Помилка мережі:", err);
-      alert('Сталася помилка при відправці замовлення.');
   });
 }
 document.addEventListener('DOMContentLoaded', function() {
