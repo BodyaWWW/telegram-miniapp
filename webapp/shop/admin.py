@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.html import mark_safe
 from django.utils.html import format_html
 from .models import Coin, Banknote, Order, OrderItem, SliderBanner
 from .utils import broadcast_message_to_all
@@ -42,8 +43,9 @@ class OrderAdmin(admin.ModelAdmin):
 
     def sent_status(self, obj):
         if obj.sent:
-            return format_html('<span style="color: green; font-weight: bold;">✔ Відправлено</span>')
-        return format_html('<span style="color: red;">❌ Не відправлено</span>')
+            return mark_safe('<span style="color: green;">✅ Відправлено</span>')
+        else:
+            return mark_safe('<span style="color: red;">❌ Не відправлено</span>')
 
     sent_status.short_description = "Статус відправки"
 
