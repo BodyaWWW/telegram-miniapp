@@ -123,5 +123,5 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'd976fd7d11c3.ngrok-free.app']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'https://telegram-miniapp-2-pimo.onrender.com','telegram-miniapp-2-pimo.onrender.com']
 

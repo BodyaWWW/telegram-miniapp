@@ -4,7 +4,7 @@ from aiogram.filters import Command
 import asyncio
 
 TOKEN = "7810642321:AAGxqRFwFBqRS0hBR9yseX5UpguRKu4sh8k"
-WEB_APP_URL = "https://d976fd7d11c3.ngrok-free.app"  # <-- Сюда вставь ссылку Ngrok
+WEB_APP_URL = "https://telegram-miniapp-2-pimo.onrender.com"  # <-- Сюда вставь ссылку Ngrok
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
